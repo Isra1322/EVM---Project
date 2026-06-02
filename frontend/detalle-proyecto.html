@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle del Proyecto EVM</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="detail-page">
+    <header class="detail-hero">
+        <a class="detail-back-button" href="index.html">Volver</a>
+        <div class="detail-title-row">
+            <div>
+                <h1 id="projectTitle">Detalle del proyecto</h1>
+                <p>Información integral del proyecto, indicadores EVM, análisis y Curva S.</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="detail-main">
+        <div id="loadingMessage" class="detail-card detail-loading">
+            <p class="empty-state">Cargando información del proyecto...</p>
+        </div>
+
+        <div id="projectDetailContent" class="project-detail-content hidden">
+            <section class="detail-card detail-section">
+                <div class="detail-section-header">
+                    <span class="section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-13Z"></path>
+                            <path d="M8 8h8M8 12h8M8 16h5"></path>
+                        </svg>
+                    </span>
+                    <h2>Datos generales</h2>
+                </div>
+                <div id="generalData" class="detail-grid"></div>
+            </section>
+
+            <div class="detail-dashboard-grid">
+                <section class="detail-card detail-section chart-card">
+                    <div class="detail-section-header">
+                        <h2>Curva S</h2>
+                        <div id="chartBacValue" class="chart-bac-value"></div>
+                    </div>
+                    <div class="chart-legend-row" aria-hidden="true">
+                        <span><i class="legend-dot pv"></i>PV</span>
+                        <span><i class="legend-dot ev"></i>EV</span>
+                        <span><i class="legend-dot ac"></i>AC</span>
+                    </div>
+                    <div class="chart-wrapper compact-chart">
+                        <canvas id="curvaSChart"></canvas>
+                    </div>
+                </section>
+
+                <section class="detail-card detail-section">
+                    <div class="detail-section-header">
+                        <h2>Indicadores EVM</h2>
+                    </div>
+                    <div id="indicatorsGrid" class="indicator-grid"></div>
+                </section>
+            </div>
+
+            <section class="detail-card detail-section">
+                <div class="detail-section-header">
+                    <h2>Tabla EDT</h2>
+                </div>
+                <div class="readonly-table-wrapper">
+                    <table class="readonly-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Tarea</th>
+                                <th>Duración</th>
+                                <th>Predecesora(s)</th>
+                                <th>Costo ($)</th>
+                                <th>Personal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasksBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="detail-card detail-section">
+                <div class="detail-section-header">
+                    <h2>Resumen ejecutivo</h2>
+                </div>
+                <div id="executiveSummary" class="executive-summary"></div>
+            </section>
+
+            <div class="ai-toggle-row">
+                <button id="toggleAiAnalysisBtn" class="primary-button ai-toggle-button" type="button">
+                    Mostrar análisis IA
+                </button>
+            </div>
+
+            <section id="aiAnalysisPanel" class="detail-card detail-section ai-collapsible-section" aria-hidden="true">
+                <div class="detail-section-header">
+                    <h2>Análisis IA</h2>
+                </div>
+                <div id="aiAnalysis" class="ai-report"></div>
+            </section>
+        </div>
+    </main>
+
+    <script src="detalle-proyecto.js"></script>
+</body>
+</html>

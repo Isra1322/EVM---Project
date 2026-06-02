@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestion de Proyectos EVM</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="index-page">
+    <header class="page-header dashboard-header">
+            <div class="header-title-group">
+                <span class="app-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-13Z"></path>
+                        <path d="M8 8h8M8 12h8M8 16h5"></path>
+                    </svg>
+                </span>
+                <div>
+                    <h1>Sistema de Gestión de Proyectos EVM</h1>
+                    <p>Gestiona proyectos, tareas EDT, análisis de valor ganado y Curva S desde una sola pantalla.</p>
+                </div>
+            </div>
+            <button id="createProjectBtn" class="primary-button create-project-button">
+                <span aria-hidden="true">+</span>
+                Crear proyecto
+            </button>
+        </header>
+
+    <main class="dashboard-main">
+            <section class="toolbar dashboard-card">
+                <div class="section-title-group">
+                    <span class="section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h4.2l2 2H18a2.5 2.5 0 0 1 2.5 2.5v7A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5v-9Z"></path>
+                        </svg>
+                    </span>
+                    <div>
+                        <h2>Proyectos guardados</h2>
+                        <span id="projectCount">0 proyectos</span>
+                    </div>
+                </div>
+                <button id="refreshBtn" class="secondary-button refresh-button">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M20 6v5h-5"></path>
+                        <path d="M4 18v-5h5"></path>
+                        <path d="M18.2 9A7 7 0 0 0 6.8 6.8L4 9.5"></path>
+                        <path d="M5.8 15A7 7 0 0 0 17.2 17.2L20 14.5"></path>
+                    </svg>
+                    Actualizar
+                </button>
+            </section>
+
+            <section class="table-panel projects-card">
+                <table class="project-table">
+                    <thead>
+                        <tr>
+                            <th>NOMBRE</th>
+                            <th>FECHA INICIO</th>
+                            <th>FECHA FIN</th>
+                            <th>FECHA CORTE</th>
+                            <th>BAC</th>
+                            <th>EV</th>
+                            <th>AC</th>
+                            <th>ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projectsTableBody">
+                        <tr>
+                            <td colspan="8" class="empty-state">Cargando proyectos...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+    </main>
+
+    <div id="projectModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h2 id="projectModalTitle">Crear proyecto</h2>
+                <button class="icon-button" data-close-modal="projectModal" aria-label="Cerrar">×</button>
+            </div>
+
+            <form id="projectForm">
+                <input type="hidden" id="projectId">
+
+                <div class="form-grid">
+                    <label>
+                        Nombre
+                        <input type="text" id="nombre" required>
+                    </label>
+                    <label>
+                        Fecha inicio
+                        <input type="date" id="fechaInicio" required>
+                    </label>
+                    <label>
+                        Fecha fin
+                        <input type="date" id="fechaFin" required>
+                    </label>
+                    <label>
+                        Fecha corte
+                        <input type="date" id="fechaCorte" required>
+                    </label>
+                    <label>
+                        Valor ganado EV
+                        <input type="number" id="valorGanadoEV" min="0" step="0.01" required>
+                    </label>
+                    <label>
+                        Costo real AC
+                        <input type="number" id="costoRealAC" min="0" step="0.01" required>
+                    </label>
+                    <label>
+                        Presupuesto BAC
+                        <input type="number" id="presupuestoBAC" min="0" step="0.01" required>
+                    </label>
+                </div>
+
+                <div class="tasks-header">
+                    <h3>Tareas EDT</h3>
+                    <button type="button" id="addTaskBtn" class="secondary-button">Agregar tarea</button>
+                </div>
+
+                <div class="edt-table-wrapper">
+                    <table class="edt-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Tarea</th>
+                                <th>Duración</th>
+                                <th>Predecesora(s)</th>
+                                <th>Costo ($)</th>
+                                <th>Personal</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasksTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="secondary-button" data-close-modal="projectModal">Cancelar</button>
+                    <button type="submit" class="primary-button">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
