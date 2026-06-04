@@ -3,6 +3,9 @@ namespace Application.DTOs;
 public class ProyectoCreateDto
 {
     public string Nombre { get; set; } = string.Empty;
+    public string UnidadTiempo { get; set; } = string.Empty;
+    public string AdministradorProyecto { get; set; } = string.Empty;
+    public string AsistenteProyecto { get; set; } = string.Empty;
     public DateTime FechaInicio { get; set; }
     public DateTime FechaFin { get; set; }
     public DateTime FechaCorte { get; set; }
@@ -10,4 +13,5 @@ public class ProyectoCreateDto
     public decimal CostoRealAC { get; set; }
     public decimal PresupuestoBAC { get; set; }
     public List<TareaEDTCreateDto> Tareas { get; set; } = new();
+    public List<CorteProyectoCreateDto> Cortes { get; set; } = new();
 }

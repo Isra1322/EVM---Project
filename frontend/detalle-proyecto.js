@@ -12,15 +12,18 @@ const elements = {
     toggleAiAnalysisBtn: document.getElementById("toggleAiAnalysisBtn"),
     chartBacValue: document.getElementById("chartBacValue"),
     tasksBody: document.getElementById("tasksBody"),
+    cutoffSelect: document.getElementById("cutoffSelect"),
     statusBadge: document.getElementById("statusBadge"),
     alertMessages: document.getElementById("alertMessages")
 };
 
 let chart = null;
 let isAiAnalysisVisible = false;
+let currentProjectId = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     elements.toggleAiAnalysisBtn.addEventListener("click", toggleAiAnalysis);
+    elements.cutoffSelect.addEventListener("change", handleCutoffChange);
     loadProjectDetail();
 });
 
@@ -31,6 +34,8 @@ async function loadProjectDetail() {
         showError("No se recibio el identificador del proyecto.");
         return;
     }
+
+    currentProjectId = projectId;
 
     try {
         const [projectResult, indicatorsResult, baseAnalysisResult, aiResult, curveResult] = await Promise.all([
@@ -56,14 +61,27 @@ async function loadProjectDetail() {
 function renderProjectDetail(project, indicators, baseAnalysis, aiAnalysis, curve) {
     elements.projectTitle.textContent = project.nombre ?? "Detalle del proyecto";
     elements.generalData.innerHTML = [
+        buildDetailItem("Unidad de tiempo", formatUnidadTiempo(project.unidadTiempo), "info"),
+        buildDetailItem("Administrador del Proyecto", project.administradorProyecto ?? "", "info"),
+        buildDetailItem("Asistente del Proyecto", project.asistenteProyecto ?? "", "info"),
         buildDetailItem("Fecha inicio", formatDate(project.fechaInicio), "date"),
         buildDetailItem("Fecha fin", formatDate(project.fechaFin), "date"),
-        buildDetailItem("Fecha corte", formatDate(project.fechaCorte), "date"),
-        buildDetailItem("Valor ganado (EV)", formatMoney(project.valorGanadoEV), "ev"),
-        buildDetailItem("Costo real (AC)", formatMoney(project.costoRealAC), "ac"),
         buildDetailItem("Presupuesto (BAC)", formatMoney(project.presupuestoBAC), "bac")
     ].join("");
 
+    renderCutoffOptions(project.cortes ?? [], indicators.corteId);
+    renderIndicators(indicators);
+    elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysis);
+    elements.aiAnalysis.innerHTML = buildAiAnalysis(aiAnalysis?.analisisGenerado);
+    elements.tasksBody.innerHTML = buildReadOnlyTasks(project.tareas ?? []);
+
+    renderCurveSChart(curve);
+
+    elements.loadingMessage.classList.add("hidden");
+    elements.projectDetailContent.classList.remove("hidden");
+}
+
+function renderIndicators(indicators) {
     const bac = indicators.bac;
     const pv = indicators.pv;
     const ev = indicators.ev;
@@ -96,16 +114,39 @@ function renderProjectDetail(project, indicators, baseAnalysis, aiAnalysis, curv
         buildIndicatorCard("TCPI", tcpi, "ratio", "(Rendimiento necesario)")
     ].join("");
 
-    elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysis);
-    elements.aiAnalysis.innerHTML = buildAiAnalysis(aiAnalysis?.analisisGenerado);
-    elements.tasksBody.innerHTML = buildReadOnlyTasks(project.tareas ?? []);
-
-    renderCurveSChart(curve, project.fechaCorte);
-
     updateStatusAlertsAndBadge(indicators.cpi, indicators.spi);
+}
 
-    elements.loadingMessage.classList.add("hidden");
-    elements.projectDetailContent.classList.remove("hidden");
+function renderCutoffOptions(cortes, selectedCorteId) {
+    elements.cutoffSelect.innerHTML = cortes
+        .map((corte, index) => `
+            <option value="${escapeAttribute(corte.id)}" ${corte.id === selectedCorteId ? "selected" : ""}>
+                Corte ${index + 1} - ${escapeHtml(formatDate(corte.fechaCorte))}
+            </option>
+        `)
+        .join("");
+}
+
+async function handleCutoffChange() {
+    const corteId = elements.cutoffSelect.value;
+
+    if (!currentProjectId || !corteId) {
+        return;
+    }
+
+    try {
+        const [indicatorsResult, baseAnalysisResult, aiResult] = await Promise.all([
+            requestJson(`${API_URL}/${currentProjectId}/indicadores?corteId=${corteId}`),
+            requestJson(`${API_URL}/${currentProjectId}/analisis?corteId=${corteId}`),
+            requestJson(`${API_URL}/${currentProjectId}/analisis-ia?corteId=${corteId}`)
+        ]);
+
+        renderIndicators(indicatorsResult.data);
+        elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysisResult.data);
+        elements.aiAnalysis.innerHTML = buildAiAnalysis(aiResult.data?.analisisGenerado);
+    } catch (error) {
+        showError(error.message);
+    }
 }
 
 function buildExecutiveSummary(baseAnalysis) {
@@ -146,10 +187,9 @@ function toggleAiAnalysis() {
     elements.toggleAiAnalysisBtn.textContent = isAiAnalysisVisible ? "Ocultar análisis IA" : "Mostrar análisis IA";
 }
 
-function renderCurveSChart(curve, fechaCorte) {
+function renderCurveSChart(curve) {
     const canvas = document.getElementById("curvaSChart");
     const labels = curve.puntos.map((point) => formatDate(point.fecha));
-    const fechaCorteFormatted = formatDate(fechaCorte);
     elements.chartBacValue.textContent = `BAC: ${formatMoney(curve.bac)}`;
 
     if (chart) {
@@ -186,26 +226,7 @@ function renderCurveSChart(curve, fechaCorte) {
                     display: false
                 },
                 annotation: {
-                    annotations: {
-                        lineCorte: {
-                            type: 'line',
-                            xMin: fechaCorteFormatted,
-                            xMax: fechaCorteFormatted,
-                            borderColor: 'red',
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            label: {
-                                display: true,
-                                content: '📌 Corte',
-                                position: 'start',
-                                backgroundColor: 'rgba(255, 99, 132, 0.8)',
-                                color: 'white',
-                                font: {
-                                    weight: 'bold'
-                                }
-                            }
-                        }
-                    }
+                    annotations: buildCutoffAnnotations(curve.cortes ?? [])
                 }
             },
             scales: {
@@ -224,6 +245,30 @@ function renderCurveSChart(curve, fechaCorte) {
     });
 }
 
+function buildCutoffAnnotations(cortes) {
+    return cortes.reduce((annotations, corte, index) => {
+        annotations[`lineCorte${index}`] = {
+            type: "line",
+            xMin: formatDate(corte.fechaCorte),
+            xMax: formatDate(corte.fechaCorte),
+            borderColor: "red",
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+                display: true,
+                content: `Corte ${index + 1}`,
+                position: "start",
+                backgroundColor: "rgba(255, 99, 132, 0.8)",
+                color: "white",
+                font: {
+                    weight: "bold"
+                }
+            }
+        };
+
+        return annotations;
+    }, {});
+}
 function buildDataset(label, data, color) {
     return {
         label,
@@ -525,6 +570,16 @@ function formatIndicatorValue(value, type) {
     return formatMoney(value);
 }
 
+function formatUnidadTiempo(value) {
+    const labels = {
+        Dias: "D\u00edas",
+        Semanas: "Semanas",
+        Meses: "Meses"
+    };
+
+    return labels[value] ?? value ?? "";
+}
+
 function cleanMarkdown(value) {
     return String(value ?? "")
         .replace(/^\s*#{1,6}\s*/gm, "")
@@ -604,4 +659,8 @@ function escapeHtml(value) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+}
+
+function escapeAttribute(value) {
+    return escapeHtml(value).replaceAll("`", "&#096;");
 }

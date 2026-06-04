@@ -14,6 +14,18 @@ public class ProyectoConfiguration : IEntityTypeConfiguration<Proyecto>
             .IsRequired()
             .HasMaxLength(150);
 
+        builder.Property(proyecto => proyecto.UnidadTiempo)
+            .IsRequired()
+            .HasMaxLength(20);
+
+        builder.Property(proyecto => proyecto.AdministradorProyecto)
+            .IsRequired()
+            .HasMaxLength(120);
+
+        builder.Property(proyecto => proyecto.AsistenteProyecto)
+            .IsRequired()
+            .HasMaxLength(120);
+
         builder.Property(proyecto => proyecto.ValorGanadoEV)
             .HasColumnType("decimal(18,2)");
 
@@ -26,6 +38,11 @@ public class ProyectoConfiguration : IEntityTypeConfiguration<Proyecto>
         builder.HasMany(proyecto => proyecto.Tareas)
             .WithOne(tarea => tarea.Proyecto)
             .HasForeignKey(tarea => tarea.ProyectoId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(proyecto => proyecto.Cortes)
+            .WithOne(corte => corte.Proyecto)
+            .HasForeignKey(corte => corte.ProyectoId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

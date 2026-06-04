@@ -18,6 +18,7 @@ public class ProyectoRepository : IProyectoRepository
     {
         return await _context.Proyectos
             .Include(proyecto => proyecto.Tareas)
+            .Include(proyecto => proyecto.Cortes)
             .ToListAsync();
     }
 
@@ -25,6 +26,7 @@ public class ProyectoRepository : IProyectoRepository
     {
         return await _context.Proyectos
             .Include(proyecto => proyecto.Tareas)
+            .Include(proyecto => proyecto.Cortes)
             .FirstOrDefaultAsync(proyecto => proyecto.Id == id);
     }
 

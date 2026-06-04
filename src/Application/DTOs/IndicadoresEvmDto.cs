@@ -3,7 +3,9 @@ namespace Application.DTOs;
 public class IndicadoresEvmDto
 {
     public Guid ProyectoId { get; set; }
+    public Guid? CorteId { get; set; }
     public string NombreProyecto { get; set; } = string.Empty;
+    public DateTime? FechaCorte { get; set; }
     public decimal PV { get; set; }
     public decimal EV { get; set; }
     public decimal AC { get; set; }

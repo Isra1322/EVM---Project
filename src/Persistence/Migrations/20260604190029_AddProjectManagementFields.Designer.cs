@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Persistence.Context;
 
@@ -11,9 +12,11 @@ using Persistence.Context;
 namespace Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260604190029_AddProjectManagementFields")]
+    partial class AddProjectManagementFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,31 +24,6 @@ namespace Persistence.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("Domain.Entities.CorteProyecto", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("CostoRealAC")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("FechaCorte")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("ProyectoId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("ValorGanadoEV")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProyectoId");
-
-                    b.ToTable("CortesProyecto");
-                });
 
             modelBuilder.Entity("Domain.Entities.Proyecto", b =>
                 {
@@ -135,17 +113,6 @@ namespace Persistence.Migrations
                     b.ToTable("TareasEDT");
                 });
 
-            modelBuilder.Entity("Domain.Entities.CorteProyecto", b =>
-                {
-                    b.HasOne("Domain.Entities.Proyecto", "Proyecto")
-                        .WithMany("Cortes")
-                        .HasForeignKey("ProyectoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Proyecto");
-                });
-
             modelBuilder.Entity("Domain.Entities.TareaEDT", b =>
                 {
                     b.HasOne("Domain.Entities.Proyecto", "Proyecto")
@@ -159,8 +126,6 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.Proyecto", b =>
                 {
-                    b.Navigation("Cortes");
-
                     b.Navigation("Tareas");
                 });
 #pragma warning restore 612, 618

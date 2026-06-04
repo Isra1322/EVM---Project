@@ -18,7 +18,7 @@
                 <div>
                     <h1>Sistema de Gestión de Proyectos EVM</h1>
                     <p>Gestiona proyectos, tareas EDT, análisis de valor ganado y Curva S desde una sola pantalla.</p>
-                </div>
+                  </div>
             </div>
             <button id="createProjectBtn" class="primary-button create-project-button">
                 <span aria-hidden="true">+</span>
@@ -89,28 +89,24 @@
                         <input type="text" id="nombre" required>
                     </label>
                     <label>
+                        Unidad de tiempo
+                        <select id="unidadTiempo" required>
+                            <option value="Dias">D&iacute;as</option>
+                            <option value="Semanas">Semanas</option>
+                            <option value="Meses">Meses</option>
+                        </select>
+                    </label>
+                    <label>
+                        Administrador del Proyecto
+                        <input type="text" id="administradorProyecto" required>
+                    </label>
+                    <label>
+                        Asistente del Proyecto
+                        <input type="text" id="asistenteProyecto" required>
+                    </label>
+                    <label>
                         Fecha inicio
                         <input type="date" id="fechaInicio" required>
-                    </label>
-                    <label>
-                        Fecha fin
-                        <input type="date" id="fechaFin" required>
-                    </label>
-                    <label>
-                        Fecha corte
-                        <input type="date" id="fechaCorte" required>
-                    </label>
-                    <label>
-                        Valor ganado EV
-                        <input type="number" id="valorGanadoEV" min="0" step="0.01" required>
-                    </label>
-                    <label>
-                        Costo real AC
-                        <input type="number" id="costoRealAC" min="0" step="0.01" required>
-                    </label>
-                    <label>
-                        Presupuesto BAC
-                        <input type="number" id="presupuestoBAC" min="0" step="0.01" required>
                     </label>
                 </div>
 
@@ -133,6 +129,48 @@
                             </tr>
                         </thead>
                         <tbody id="tasksTableBody"></tbody>
+                    </table>
+                </div>
+
+                <section class="auto-summary" aria-label="Resumen automatico del proyecto">
+                    <article class="auto-summary-item">
+                        <span>BAC calculado</span>
+                        <strong id="calculatedBAC">0.00</strong>
+                    </article>
+                    <article class="auto-summary-item">
+                        <span>Duracion total</span>
+                        <strong id="calculatedDuration">0 dias</strong>
+                    </article>
+                    <article class="auto-summary-item">
+                        <span>Fecha fin estimada</span>
+                        <strong id="calculatedEndDate">-</strong>
+                    </article>
+                </section>
+
+                <div class="tasks-header">
+                    <h3>Fechas de corte</h3>
+                    <div class="cutoff-tools">
+                        <label>
+                            Cantidad
+                            <input type="number" id="cutoffCount" min="1" step="1" value="1">
+                        </label>
+                        <button type="button" id="applyCutoffCountBtn" class="secondary-button">Aplicar</button>
+                        <button type="button" id="addCutoffBtn" class="secondary-button">Agregar corte</button>
+                    </div>
+                </div>
+
+                <div class="edt-table-wrapper">
+                    <table class="edt-table cutoff-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Fecha corte</th>
+                                <th>Valor ganado EV</th>
+                                <th>Costo real AC</th>
+                                <th>Acci&oacute;n</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cutoffsTableBody"></tbody>
                     </table>
                 </div>
 

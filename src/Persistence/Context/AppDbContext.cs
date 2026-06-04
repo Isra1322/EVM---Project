@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Proyecto> Proyectos => Set<Proyecto>();
     public DbSet<TareaEDT> TareasEDT => Set<TareaEDT>();
+    public DbSet<CorteProyecto> CortesProyecto => Set<CorteProyecto>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

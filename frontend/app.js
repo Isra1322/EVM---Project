@@ -15,6 +15,13 @@ const elements = {
     projectId: document.getElementById("projectId"),
     tasksTableBody: document.getElementById("tasksTableBody"),
     addTaskBtn: document.getElementById("addTaskBtn"),
+    cutoffsTableBody: document.getElementById("cutoffsTableBody"),
+    cutoffCount: document.getElementById("cutoffCount"),
+    applyCutoffCountBtn: document.getElementById("applyCutoffCountBtn"),
+    addCutoffBtn: document.getElementById("addCutoffBtn"),
+    calculatedBAC: document.getElementById("calculatedBAC"),
+    calculatedDuration: document.getElementById("calculatedDuration"),
+    calculatedEndDate: document.getElementById("calculatedEndDate"),
     toast: document.getElementById("toast")
 };
 
@@ -22,7 +29,11 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.createProjectBtn.addEventListener("click", openCreateProjectModal);
     elements.refreshBtn.addEventListener("click", loadProjects);
     elements.addTaskBtn.addEventListener("click", () => addTaskRow());
+    elements.addCutoffBtn.addEventListener("click", () => addCutoffRow());
+    elements.applyCutoffCountBtn.addEventListener("click", applyCutoffCount);
     elements.projectForm.addEventListener("submit", saveProject);
+    document.getElementById("fechaInicio").addEventListener("input", updateProjectSummary);
+    document.getElementById("unidadTiempo").addEventListener("change", updateProjectSummary);
 
     document.querySelectorAll("[data-close-modal]").forEach((button) => {
         button.addEventListener("click", () => closeModal(button.dataset.closeModal));
@@ -93,7 +104,11 @@ function openCreateProjectModal() {
     elements.projectForm.reset();
     elements.projectId.value = "";
     elements.tasksTableBody.innerHTML = "";
+    elements.cutoffsTableBody.innerHTML = "";
+    elements.cutoffCount.value = 1;
     addTaskRow();
+    addCutoffRow();
+    updateProjectSummary();
     openModal("projectModal");
 }
 
@@ -101,18 +116,28 @@ function openEditProjectModal(project) {
     elements.projectModalTitle.textContent = "Editar proyecto";
     elements.projectForm.reset();
     elements.tasksTableBody.innerHTML = "";
+    elements.cutoffsTableBody.innerHTML = "";
 
     elements.projectId.value = project.id;
     document.getElementById("nombre").value = project.nombre ?? "";
+    document.getElementById("unidadTiempo").value = project.unidadTiempo ?? "Dias";
+    document.getElementById("administradorProyecto").value = project.administradorProyecto ?? "";
+    document.getElementById("asistenteProyecto").value = project.asistenteProyecto ?? "";
     document.getElementById("fechaInicio").value = toInputDate(project.fechaInicio);
-    document.getElementById("fechaFin").value = toInputDate(project.fechaFin);
-    document.getElementById("fechaCorte").value = toInputDate(project.fechaCorte);
-    document.getElementById("valorGanadoEV").value = project.valorGanadoEV ?? 0;
-    document.getElementById("costoRealAC").value = project.costoRealAC ?? 0;
-    document.getElementById("presupuestoBAC").value = project.presupuestoBAC ?? 0;
 
     const tasks = project.tareas?.length ? project.tareas : [{}];
     tasks.forEach((task) => addTaskRow(task));
+
+    const cutoffs = project.cortes?.length
+        ? project.cortes
+        : [{
+            fechaCorte: project.fechaCorte,
+            valorGanadoEV: project.valorGanadoEV,
+            costoRealAC: project.costoRealAC
+        }];
+    cutoffs.forEach((cutoff) => addCutoffRow(cutoff));
+    elements.cutoffCount.value = elements.cutoffsTableBody.children.length;
+    updateProjectSummary();
 
     openModal("projectModal");
 }
@@ -148,9 +173,67 @@ function addTaskRow(task = {}) {
     row.querySelector(".danger-button").addEventListener("click", () => {
         row.remove();
         renumberTasks();
+        updateProjectSummary();
+    });
+
+    row.querySelectorAll("input").forEach((input) => {
+        input.addEventListener("input", updateProjectSummary);
     });
 
     elements.tasksTableBody.appendChild(row);
+    updateProjectSummary();
+}
+
+function addCutoffRow(cutoff = {}) {
+    const index = elements.cutoffsTableBody.children.length + 1;
+    const row = document.createElement("tr");
+    row.className = "cutoff-row";
+
+    row.innerHTML = `
+        <td data-row-number>${index}</td>
+        <td>
+            <input type="hidden" data-field="id" value="${escapeAttribute(cutoff.id ?? "")}">
+            <input type="date" data-field="fechaCorte" value="${toInputDate(cutoff.fechaCorte)}" required>
+        </td>
+        <td>
+            <input type="number" data-field="valorGanadoEV" min="0" step="0.01" value="${cutoff.valorGanadoEV ?? 0}" required>
+        </td>
+        <td>
+            <input type="number" data-field="costoRealAC" min="0" step="0.01" value="${cutoff.costoRealAC ?? 0}" required>
+        </td>
+        <td>
+            <button type="button" class="danger-button">Quitar</button>
+        </td>
+    `;
+
+    row.querySelector(".danger-button").addEventListener("click", () => {
+        if (elements.cutoffsTableBody.children.length === 1) {
+            showToast("Debe registrar al menos una fecha de corte.");
+            return;
+        }
+
+        row.remove();
+        renumberCutoffs();
+        elements.cutoffCount.value = elements.cutoffsTableBody.children.length;
+    });
+
+    elements.cutoffsTableBody.appendChild(row);
+    elements.cutoffCount.value = elements.cutoffsTableBody.children.length;
+}
+
+function applyCutoffCount() {
+    const targetCount = Math.max(1, Number(elements.cutoffCount.value) || 1);
+
+    while (elements.cutoffsTableBody.children.length < targetCount) {
+        addCutoffRow();
+    }
+
+    while (elements.cutoffsTableBody.children.length > targetCount) {
+        elements.cutoffsTableBody.lastElementChild.remove();
+    }
+
+    renumberCutoffs();
+    elements.cutoffCount.value = targetCount;
 }
 
 async function saveProject(event) {
@@ -177,31 +260,125 @@ async function saveProject(event) {
 }
 
 function buildProjectPayload() {
+    const tareas = getTaskPayload();
+    const cortes = getCutoffPayload();
+    const summary = calculateProjectSummary(tareas);
+    const compatibilityCutoff = getLastCutoff(cortes);
+
     return {
         nombre: document.getElementById("nombre").value.trim(),
+        unidadTiempo: document.getElementById("unidadTiempo").value,
+        administradorProyecto: document.getElementById("administradorProyecto").value.trim(),
+        asistenteProyecto: document.getElementById("asistenteProyecto").value.trim(),
         fechaInicio: document.getElementById("fechaInicio").value,
-        fechaFin: document.getElementById("fechaFin").value,
-        fechaCorte: document.getElementById("fechaCorte").value,
-        valorGanadoEV: Number(document.getElementById("valorGanadoEV").value),
-        costoRealAC: Number(document.getElementById("costoRealAC").value),
-        presupuestoBAC: Number(document.getElementById("presupuestoBAC").value),
-        tareas: Array.from(elements.tasksTableBody.querySelectorAll(".task-row")).map((row) => {
-            const id = row.querySelector('[data-field="id"]').value;
-            const tarea = {
-                nombre: row.querySelector('[data-field="nombre"]').value.trim(),
-                duracionDias: Number(row.querySelector('[data-field="duracionDias"]').value),
-                predecesoras: row.querySelector('[data-field="predecesoras"]').value.trim(),
-                costo: Number(row.querySelector('[data-field="costo"]').value),
-                responsable: row.querySelector('[data-field="responsable"]').value.trim()
-            };
-
-            if (id) {
-                tarea.id = id;
-            }
-
-            return tarea;
-        })
+        fechaFin: summary.fechaFin,
+        fechaCorte: compatibilityCutoff?.fechaCorte ?? "",
+        valorGanadoEV: compatibilityCutoff?.valorGanadoEV ?? 0,
+        costoRealAC: compatibilityCutoff?.costoRealAC ?? 0,
+        presupuestoBAC: summary.presupuestoBAC,
+        tareas,
+        cortes
     };
+}
+
+function getTaskPayload() {
+    return Array.from(elements.tasksTableBody.querySelectorAll(".task-row")).map((row) => {
+        const id = row.querySelector('[data-field="id"]').value;
+        const tarea = {
+            nombre: row.querySelector('[data-field="nombre"]').value.trim(),
+            duracionDias: Number(row.querySelector('[data-field="duracionDias"]').value),
+            predecesoras: row.querySelector('[data-field="predecesoras"]').value.trim(),
+            costo: Number(row.querySelector('[data-field="costo"]').value),
+            responsable: row.querySelector('[data-field="responsable"]').value.trim()
+        };
+
+        if (id) {
+            tarea.id = id;
+        }
+
+        return tarea;
+    });
+}
+
+function getCutoffPayload() {
+    return Array.from(elements.cutoffsTableBody.querySelectorAll(".cutoff-row")).map((row) => {
+        const id = row.querySelector('[data-field="id"]').value;
+        const cutoff = {
+            fechaCorte: row.querySelector('[data-field="fechaCorte"]').value,
+            valorGanadoEV: Number(row.querySelector('[data-field="valorGanadoEV"]').value),
+            costoRealAC: Number(row.querySelector('[data-field="costoRealAC"]').value)
+        };
+
+        if (id) {
+            cutoff.id = id;
+        }
+
+        return cutoff;
+    });
+}
+
+function getLastCutoff(cortes) {
+    return [...cortes]
+        .filter((corte) => corte.fechaCorte)
+        .sort((left, right) => left.fechaCorte.localeCompare(right.fechaCorte))
+        .at(-1);
+}
+
+function calculateProjectSummary(tareas = getTaskPayload()) {
+    const fechaInicio = document.getElementById("fechaInicio").value;
+    const unidadTiempo = document.getElementById("unidadTiempo").value;
+    const duracionTotal = tareas.reduce((total, tarea) => total + sanitizeNumber(tarea.duracionDias), 0);
+    const presupuestoBAC = tareas.reduce((total, tarea) => total + sanitizeNumber(tarea.costo), 0);
+    const fechaFin = calculateEndDate(fechaInicio, duracionTotal, unidadTiempo);
+
+    return {
+        presupuestoBAC,
+        duracionTotal,
+        fechaFin,
+        unidadTiempo
+    };
+}
+
+function updateProjectSummary() {
+    const summary = calculateProjectSummary();
+
+    elements.calculatedBAC.textContent = formatMoney(summary.presupuestoBAC);
+    elements.calculatedDuration.textContent = formatDuration(summary.duracionTotal, summary.unidadTiempo);
+    elements.calculatedEndDate.textContent = summary.fechaFin ? formatDate(summary.fechaFin) : "-";
+}
+
+function sanitizeNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : 0;
+}
+
+function calculateEndDate(fechaInicio, duracionTotal, unidadTiempo) {
+    if (!fechaInicio || duracionTotal <= 0) {
+        return "";
+    }
+
+    const [year, month, day] = fechaInicio.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+
+    if (unidadTiempo === "Semanas") {
+        date.setDate(date.getDate() + (duracionTotal * 7));
+    } else if (unidadTiempo === "Meses") {
+        date.setMonth(date.getMonth() + duracionTotal);
+    } else {
+        date.setDate(date.getDate() + duracionTotal);
+    }
+
+    return toInputDateFromLocalDate(date);
+}
+
+function formatDuration(duracionTotal, unidadTiempo) {
+    const labels = {
+        Dias: duracionTotal === 1 ? "d\u00eda" : "d\u00edas",
+        Semanas: duracionTotal === 1 ? "semana" : "semanas",
+        Meses: duracionTotal === 1 ? "mes" : "meses"
+    };
+
+    return `${duracionTotal} ${labels[unidadTiempo] ?? labels.Dias}`;
 }
 
 async function deleteProject(project) {
@@ -265,7 +442,17 @@ function formatDate(value) {
         return "";
     }
 
-    return new Date(value).toLocaleDateString("es-CO");
+    const date = value.length === 10
+        ? parseInputDate(value)
+        : new Date(value);
+
+    return date.toLocaleDateString("es-CO");
+}
+
+function renumberCutoffs() {
+    elements.cutoffsTableBody.querySelectorAll(".cutoff-row").forEach((row, index) => {
+        row.querySelector("[data-row-number]").textContent = index + 1;
+    });
 }
 
 function toInputDate(value) {
@@ -274,6 +461,19 @@ function toInputDate(value) {
     }
 
     return value.substring(0, 10);
+}
+
+function toInputDateFromLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+function parseInputDate(value) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
 }
 
 function formatStandardNumber(value) {

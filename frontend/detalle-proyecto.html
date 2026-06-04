@@ -52,6 +52,7 @@
                         <span><i class="legend-dot pv"></i>PV</span>
                         <span><i class="legend-dot ev"></i>EV</span>
                         <span><i class="legend-dot ac"></i>AC</span>
+                        <span><i class="legend-dot cutoff"></i>Cortes</span>
                     </div>
                     <div class="chart-wrapper compact-chart">
                         <canvas id="curvaSChart"></canvas>
@@ -61,7 +62,13 @@
                 <section class="detail-card detail-section">
                     <div class="detail-section-header" style="align-items: baseline;">
                         <h2>Indicadores EVM</h2>
-                        <span class="evm-legend">(Earned Value Management - Gestión del Valor Ganado)</span>
+                        <div class="indicator-controls">
+                            <span class="evm-legend">(Earned Value Management - Gestión del Valor Ganado)</span>
+                            <label>
+                                Fecha de corte
+                                <select id="cutoffSelect"></select>
+                            </label>
+                        </div>
                     </div>
                     <div id="indicatorsGrid" class="indicator-grid"></div>
                     <div id="alertMessages" class="alert-messages"></div>

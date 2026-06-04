@@ -4,6 +4,9 @@ public class ProyectoResponseDto
 {
     public Guid Id { get; set; }
     public string Nombre { get; set; } = string.Empty;
+    public string UnidadTiempo { get; set; } = string.Empty;
+    public string AdministradorProyecto { get; set; } = string.Empty;
+    public string AsistenteProyecto { get; set; } = string.Empty;
     public DateTime FechaInicio { get; set; }
     public DateTime FechaFin { get; set; }
     public DateTime FechaCorte { get; set; }
@@ -12,4 +15,5 @@ public class ProyectoResponseDto
     public decimal PresupuestoBAC { get; set; }
     public DateTime FechaCreacion { get; set; }
     public List<TareaEDTResponseDto> Tareas { get; set; } = new();
+    public List<CorteProyectoResponseDto> Cortes { get; set; } = new();
 }

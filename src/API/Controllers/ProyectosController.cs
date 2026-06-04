@@ -42,9 +42,9 @@ public class ProyectosController : ControllerBase
     }
 
     [HttpGet("{id:guid}/indicadores")]
-    public async Task<IActionResult> GetIndicadores(Guid id)
+    public async Task<IActionResult> GetIndicadores(Guid id, [FromQuery] Guid? corteId)
     {
-        var result = await _proyectoService.GetIndicadoresAsync(id);
+        var result = await _proyectoService.GetIndicadoresAsync(id, corteId);
 
         if (!result.Success && result.Message == "Proyecto no encontrado")
         {
@@ -60,9 +60,9 @@ public class ProyectosController : ControllerBase
     }
 
     [HttpGet("{id:guid}/analisis")]
-    public async Task<IActionResult> GetAnalisis(Guid id)
+    public async Task<IActionResult> GetAnalisis(Guid id, [FromQuery] Guid? corteId)
     {
-        var result = await _proyectoService.GetAnalisisAsync(id);
+        var result = await _proyectoService.GetAnalisisAsync(id, corteId);
 
         if (!result.Success && result.Message == "Proyecto no encontrado")
         {
@@ -78,9 +78,9 @@ public class ProyectosController : ControllerBase
     }
 
     [HttpGet("{id:guid}/analisis-ia")]
-    public async Task<IActionResult> GetAnalisisIa(Guid id)
+    public async Task<IActionResult> GetAnalisisIa(Guid id, [FromQuery] Guid? corteId)
     {
-        var result = await _proyectoService.GetAnalisisIaAsync(id);
+        var result = await _proyectoService.GetAnalisisIaAsync(id, corteId);
 
         if (!result.Success && result.Message == "Proyecto no encontrado")
         {
