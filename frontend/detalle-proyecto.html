@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detalle del Proyecto EVM</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
 </head>
+
 <body class="detail-page">
     <header class="detail-hero">
         <a class="detail-back-button" href="index.html">Volver</a>
@@ -28,7 +31,9 @@
                 <div class="detail-section-header">
                     <span class="section-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" focusable="false">
-                            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-13Z"></path>
+                            <path
+                                d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-13Z">
+                            </path>
                             <path d="M8 8h8M8 12h8M8 16h5"></path>
                         </svg>
                     </span>
@@ -54,10 +59,12 @@
                 </section>
 
                 <section class="detail-card detail-section">
-                    <div class="detail-section-header">
+                    <div class="detail-section-header" style="align-items: baseline;">
                         <h2>Indicadores EVM</h2>
+                        <span class="evm-legend">(Earned Value Management - Gestión del Valor Ganado)</span>
                     </div>
                     <div id="indicatorsGrid" class="indicator-grid"></div>
+                    <div id="alertMessages" class="alert-messages"></div>
                 </section>
             </div>
 
@@ -106,4 +113,5 @@
 
     <script src="detalle-proyecto.js"></script>
 </body>
+
 </html>

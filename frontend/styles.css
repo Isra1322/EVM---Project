@@ -1140,3 +1140,174 @@ input:focus {
         height: 280px;
     }
 }
+
+/* Nuevas clases para indicadores EVM */
+.verde {
+    background-color: #dcfce7 !important;
+}
+.amarillo {
+    background-color: #fef9c3 !important;
+}
+.rojo {
+    background-color: #fee2e2 !important;
+}
+
+/* Badge de estado general */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: #1f2937;
+}
+
+/* Mensajes de alerta dinÃ¡micos */
+.alert-messages {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.alert-message {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    background: #fbfdff;
+    border: 1px solid var(--line);
+    color: #374151;
+}
+
+/* Estilos para el rediseño de indicadores EVM */
+.evm-indicators-container {
+    display: grid;
+    gap: 16px;
+}
+
+.evm-card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: var(--soft-shadow);
+    padding: 16px;
+    text-align: center;
+}
+
+.evm-bac-container {
+    padding: 20px;
+}
+
+.evm-bac-container h3 {
+    margin: 0 0 4px;
+    font-size: 24px;
+    color: var(--primary);
+}
+
+.evm-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.evm-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.evm-col .evm-card {
+    height: 100%;
+}
+
+.evm-title {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.evm-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.evm-desc {
+    font-size: 14px;
+    color: #4b5563;
+    padding: 6px 12px;
+    border-radius: 8px;
+    display: inline-block;
+}
+
+.evm-ac-badge {
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #8b5cf6;
+    background: #ede9fe;
+    padding: 6px 12px;
+    border-radius: 999px;
+    display: inline-block;
+}
+
+.evm-projection {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.evm-subcard {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fbfdff;
+    padding: 12px;
+}
+
+.evm-subcard h5 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+}
+
+.evm-subcard .evm-value {
+    font-size: 18px;
+}
+
+@media (max-width: 768px) {
+    .evm-columns {
+        grid-template-columns: 1fr;
+    }
+    .evm-projection {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+.indicator-card {
+    height: auto !important;
+    min-height: 90px;
+}
+.indicator-desc {
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+.indicator-desc.verde { color: #15803d; }
+.indicator-desc.amarillo { color: #854d0e; }
+.indicator-desc.rojo { color: #b91c1c; }
+
+
+.evm-legend {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    font-weight: normal;
+    margin-left: 8px;
+}
+

@@ -276,11 +276,16 @@ function toInputDate(value) {
     return value.substring(0, 10);
 }
 
-function formatMoney(value) {
-    return Number(value ?? 0).toLocaleString("es-CO", {
+function formatStandardNumber(value) {
+    return Number(value ?? 0).toLocaleString("en-US", {
+        useGrouping: false,
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
+}
+
+function formatMoney(value) {
+    return formatStandardNumber(value);
 }
 
 function formatDateCell(value) {

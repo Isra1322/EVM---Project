@@ -11,7 +11,9 @@ const elements = {
     aiAnalysisPanel: document.getElementById("aiAnalysisPanel"),
     toggleAiAnalysisBtn: document.getElementById("toggleAiAnalysisBtn"),
     chartBacValue: document.getElementById("chartBacValue"),
-    tasksBody: document.getElementById("tasksBody")
+    tasksBody: document.getElementById("tasksBody"),
+    statusBadge: document.getElementById("statusBadge"),
+    alertMessages: document.getElementById("alertMessages")
 };
 
 let chart = null;
@@ -62,23 +64,45 @@ function renderProjectDetail(project, indicators, baseAnalysis, aiAnalysis, curv
         buildDetailItem("Presupuesto (BAC)", formatMoney(project.presupuestoBAC), "bac")
     ].join("");
 
+    const bac = indicators.bac;
+    const pv = indicators.pv;
+    const ev = indicators.ev;
+    const ac = indicators.ac;
+    const spi = indicators.spi;
+    const cpi = indicators.cpi;
+    const eac = indicators.eac;
+    const vac = indicators.vac;
+    const tcpi = indicators.tcpi;
+
+    const pvPercent = bac > 0 ? ((pv / bac) * 100).toFixed(1) : 0;
+    const evPercent = bac > 0 ? ((ev / bac) * 100).toFixed(1) : 0;
+    const spiPercent = Math.abs(spi - 1) * 100;
+    const cpiPercent = Math.abs(cpi - 1) * 100;
+    const tcpiPercent = Math.abs(tcpi - 1) * 100;
+
+    let spiText = spi > 1 ? `(Adelantado)` : spi === 1 ? `(Justo a tiempo)` : `(Atrasado)`;
+    let cpiText = cpi > 1 ? `(Bajo presupuesto)` : cpi === 1 ? `(Justo en presupuesto)` : `(Sobrecosto)`;
+    let vacText = vac > 0 ? `(Ahorro estimado)` : vac === 0 ? `(Proyectado justo)` : `(Pérdida proyectada)`;
+
     elements.indicatorsGrid.innerHTML = [
-        buildIndicatorCard("BAC", indicators.bac, "money"),
-        buildIndicatorCard("PV", indicators.pv, "money"),
-        buildIndicatorCard("EV", indicators.ev, "money"),
-        buildIndicatorCard("AC", indicators.ac, "money"),
-        buildIndicatorCard("SPI", indicators.spi, "ratio"),
-        buildIndicatorCard("CPI", indicators.cpi, "ratio"),
-        buildIndicatorCard("EAC", indicators.eac, "money"),
-        buildIndicatorCard("VAC", indicators.vac, "money"),
-        buildIndicatorCard("TCPI", indicators.tcpi, "ratio")
+        buildIndicatorCard("BAC", bac, "money", "(Presupuesto total)"),
+        buildIndicatorCard("PV", pv, "money", `(→ ${pvPercent}% planificado)`),
+        buildIndicatorCard("EV", ev, "money", `(→ ${evPercent}% completado)`),
+        buildIndicatorCard("AC", ac, "money", "(AC actual)"),
+        buildIndicatorCard("SPI", spi, "ratio", spiText),
+        buildIndicatorCard("CPI", cpi, "ratio", cpiText),
+        buildIndicatorCard("EAC", eac, "money", "(Costo estimado al terminar)"),
+        buildIndicatorCard("VAC", vac, "money", vacText),
+        buildIndicatorCard("TCPI", tcpi, "ratio", "(Rendimiento necesario)")
     ].join("");
 
     elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysis);
     elements.aiAnalysis.innerHTML = buildAiAnalysis(aiAnalysis?.analisisGenerado);
     elements.tasksBody.innerHTML = buildReadOnlyTasks(project.tareas ?? []);
 
-    renderCurveSChart(curve);
+    renderCurveSChart(curve, project.fechaCorte);
+
+    updateStatusAlertsAndBadge(indicators.cpi, indicators.spi);
 
     elements.loadingMessage.classList.add("hidden");
     elements.projectDetailContent.classList.remove("hidden");
@@ -122,9 +146,10 @@ function toggleAiAnalysis() {
     elements.toggleAiAnalysisBtn.textContent = isAiAnalysisVisible ? "Ocultar análisis IA" : "Mostrar análisis IA";
 }
 
-function renderCurveSChart(curve) {
+function renderCurveSChart(curve, fechaCorte) {
     const canvas = document.getElementById("curvaSChart");
     const labels = curve.puntos.map((point) => formatDate(point.fecha));
+    const fechaCorteFormatted = formatDate(fechaCorte);
     elements.chartBacValue.textContent = `BAC: ${formatMoney(curve.bac)}`;
 
     if (chart) {
@@ -142,6 +167,11 @@ function renderCurveSChart(curve) {
             ]
         },
         options: {
+            layout: {
+                padding: {
+                    left: 20
+                }
+            },
             responsive: true,
             maintainAspectRatio: false,
             interaction: {
@@ -154,6 +184,28 @@ function renderCurveSChart(curve) {
                 },
                 title: {
                     display: false
+                },
+                annotation: {
+                    annotations: {
+                        lineCorte: {
+                            type: 'line',
+                            xMin: fechaCorteFormatted,
+                            xMax: fechaCorteFormatted,
+                            borderColor: 'red',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                display: true,
+                                content: '📌 Corte',
+                                position: 'start',
+                                backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                                color: 'white',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    }
                 }
             },
             scales: {
@@ -187,21 +239,81 @@ function buildDataset(label, data, color) {
 function buildDetailItem(label, value, type) {
     return `
         <div class="detail-item detail-${type}">
-            <span class="detail-item-icon" aria-hidden="true">${getDetailIcon(type)}</span>
+            <span class="detail-item-icon" aria-hidden="true">${getDetailIcon(type, label)}</span>
             <span>${escapeHtml(label)}</span>
             <strong>${escapeHtml(value)}</strong>
         </div>
     `;
 }
 
-function buildIndicatorCard(label, value, type) {
+function getIndicatorColorClass(label, value) {
+    if (label !== "SPI" && label !== "CPI" && label !== "VAC") return "";
+    
+    if (label === "SPI" || label === "CPI") {
+        if (value < 0.95) return "rojo";
+        if (value >= 0.95 && value <= 1.04) return "amarillo";
+        if (value >= 1.05) return "verde";
+    } else if (label === "VAC") {
+        if (value < 0) return "rojo";
+        if (value === 0) return "amarillo";
+        if (value > 0) return "verde";
+    }
+    return "";
+}
+
+function buildIndicatorCard(label, value, type, text = "") {
+    const colorClass = getIndicatorColorClass(label, value);
+    const textHtml = text ? `<div class="indicator-desc ${colorClass}">${text}</div>` : "";
     return `
-        <div class="indicator-card">
+        <div class="indicator-card ${colorClass}">
             <span class="indicator-dot" aria-hidden="true"></span>
             <span>${escapeHtml(label)}</span>
             <strong>${formatIndicatorValue(value, type)}</strong>
+            ${textHtml}
         </div>
     `;
+}
+
+function updateStatusAlertsAndBadge(cpi, spi) {
+    let alertHtml = "";
+    let isCostOverrun = false;
+    let isDelayed = false;
+
+    if (cpi < 0.95) {
+        alertHtml += `<div class="alert-message rojo">⚠️ ALERTA: Sobrecosto - estás gastando más de lo planeado</div>`;
+        isCostOverrun = true;
+    }
+    if (spi < 0.95) {
+        alertHtml += `<div class="alert-message rojo">⚠️ ALERTA: Atraso - vas más lento de lo planeado</div>`;
+        isDelayed = true;
+    }
+
+    if (cpi >= 0.95 && spi >= 0.95) {
+        alertHtml = `<div class="alert-message verde">✅ Todo en orden</div>`;
+    }
+
+    elements.alertMessages.innerHTML = alertHtml;
+
+    if (elements.statusBadge) {
+        elements.statusBadge.classList.remove("hidden", "verde", "amarillo", "rojo");
+
+        if (isCostOverrun && isDelayed) {
+            elements.statusBadge.textContent = "Sobrecosto y Atrasado";
+            elements.statusBadge.classList.add("rojo");
+        } else if (isCostOverrun) {
+            elements.statusBadge.textContent = "Sobrecosto";
+            elements.statusBadge.classList.add("rojo");
+        } else if (isDelayed) {
+            elements.statusBadge.textContent = "Atrasado";
+            elements.statusBadge.classList.add("rojo");
+        } else if (cpi >= 1.05 || spi >= 1.05) {
+            elements.statusBadge.textContent = "Adelantado";
+            elements.statusBadge.classList.add("verde");
+        } else {
+            elements.statusBadge.textContent = "En línea";
+            elements.statusBadge.classList.add("verde");
+        }
+    }
 }
 
 function buildReadOnlyTasks(tasks) {
@@ -393,19 +505,21 @@ function formatDate(value) {
     return new Date(value).toLocaleDateString("es-CO");
 }
 
-function formatMoney(value) {
-    return Number(value ?? 0).toLocaleString("es-CO", {
+function formatStandardNumber(value) {
+    return Number(value ?? 0).toLocaleString("en-US", {
+        useGrouping: false,
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
 }
 
+function formatMoney(value) {
+    return formatStandardNumber(value);
+}
+
 function formatIndicatorValue(value, type) {
     if (type === "ratio") {
-        return Number(value ?? 0).toLocaleString("es-CO", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
+        return formatStandardNumber(value);
     }
 
     return formatMoney(value);
@@ -450,15 +564,13 @@ function normalizeSectionTitle(title) {
     return titles[normalized] ?? title;
 }
 
-function getDetailIcon(type) {
-    const icons = {
-        date: "D",
-        ev: "E",
-        ac: "A",
-        bac: "B"
-    };
-
-    return icons[type] ?? ".";
+function getDetailIcon(type, label) {
+    if (label === "Fecha inicio" || label === "Fecha fin") return "📅";
+    if (label === "Fecha corte") return "✂️";
+    if (type === "ev") return "✅";
+    if (type === "ac") return "💲";
+    if (type === "bac") return "🎯";
+    return "🔹";
 }
 
 function getSummaryIcon(label) {
