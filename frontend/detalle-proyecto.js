@@ -59,9 +59,9 @@ async function loadProjectDetail() {
 function renderProjectDetail(project, indicators, baseAnalysis, curve) {
     elements.projectTitle.textContent = project.nombre ?? "Detalle del proyecto";
     elements.generalData.innerHTML = [
-        buildDetailItem("Unidad de tiempo", formatUnidadTiempo(project.unidadTiempo), "info"),
-        buildDetailItem("Administrador del Proyecto", project.administradorProyecto ?? "", "info"),
-        buildDetailItem("Asistente del Proyecto", project.asistenteProyecto ?? "", "info"),
+        buildDetailItem("Unidad de tiempo", formatUnidadTiempo(project.unidadTiempo), "time"),
+        buildDetailItem("Administrador del Proyecto", project.administradorProyecto ?? "", "manager"),
+        buildDetailItem("Asistente del Proyecto", project.asistenteProyecto ?? "", "assistant"),
         buildDetailItem("Fecha inicio", formatDate(project.fechaInicio), "date"),
         buildDetailItem("Fecha fin", formatDate(project.fechaFin), "date"),
         buildDetailItem("Presupuesto (BAC)", formatMoney(project.presupuestoBAC), "bac")
@@ -676,6 +676,9 @@ function normalizeSectionTitle(title) {
 function getDetailIcon(type, label) {
     if (label === "Fecha inicio" || label === "Fecha fin") return "📅";
     if (label === "Fecha corte") return "✂️";
+    if (type === "time") return "🕒";
+    if (type === "manager") return "👤";
+    if (type === "assistant") return "👥";
     if (type === "ev") return "✅";
     if (type === "ac") return "💲";
     if (type === "bac") return "🎯";

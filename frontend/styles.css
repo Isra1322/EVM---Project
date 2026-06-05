@@ -652,7 +652,7 @@ select:focus {
 
 .project-detail-content {
     display: grid;
-    gap: 18px;
+    gap: 14px;
 }
 
 .detail-page {
@@ -684,7 +684,7 @@ select:focus {
 }
 
 .detail-hero {
-    padding: 12px 0 18px;
+    padding: 10px 0 14px;
     position: relative;
 }
 
@@ -730,15 +730,15 @@ select:focus {
 }
 
 .detail-main {
-    padding: 0 0 34px;
+    padding: 0 0 26px;
 }
 
 .detail-card {
     border: 1px solid rgba(255, 255, 255, 0.72);
-    border-radius: 18px;
+    border-radius: 16px;
     background: rgba(255, 255, 255, 0.95);
     box-shadow: 0 16px 42px rgba(15, 23, 42, 0.16);
-    padding: 20px;
+    padding: 16px;
 }
 
 .detail-loading {
@@ -751,8 +751,8 @@ select:focus {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
 .chart-card .detail-section-header {
@@ -762,19 +762,20 @@ select:focus {
 .detail-section-header h2 {
     margin: 0;
     color: #172033;
-    font-size: 20px;
+    font-size: 19px;
     letter-spacing: 0;
 }
 
 .detail-dashboard-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(420px, 0.95fr);
-    gap: 18px;
+    gap: 14px;
+    align-items: start;
 }
 
 .detail-section {
     display: grid;
-    gap: 12px;
+    gap: 10px;
 }
 
 .detail-section h3 {
@@ -785,7 +786,7 @@ select:focus {
 .detail-grid,
 .indicator-grid {
     display: grid;
-    gap: 10px;
+    gap: 8px;
 }
 
 .detail-grid {
@@ -799,13 +800,13 @@ select:focus {
 .detail-item,
 .indicator-card {
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 10px;
     background: #fbfdff;
-    padding: 12px;
+    padding: 10px;
 }
 
 .detail-item {
-    min-height: 112px;
+    min-height: 96px;
 }
 
 .detail-item span,
@@ -820,22 +821,34 @@ select:focus {
 .detail-item strong,
 .indicator-card strong {
     display: block;
-    margin-top: 6px;
-    font-size: 16px;
+    margin-top: 5px;
+    font-size: 15px;
 }
 
 .detail-item-icon {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
-    margin-bottom: 10px;
+    width: 30px;
+    height: 30px;
+    margin-bottom: 8px;
     border-radius: 50%;
     color: #ffffff !important;
-    font-size: 15px !important;
+    font-size: 14px !important;
     font-weight: 800 !important;
     text-transform: none !important;
+}
+
+.detail-time .detail-item-icon {
+    background: #0f766e;
+}
+
+.detail-manager .detail-item-icon {
+    background: #2563eb;
+}
+
+.detail-assistant .detail-item-icon {
+    background: #64748b;
 }
 
 .detail-date .detail-item-icon {
@@ -856,15 +869,15 @@ select:focus {
 
 .indicator-card {
     position: relative;
-    height: 78px;
-    min-height: 78px;
-    padding-left: 32px;
+    height: 72px;
+    min-height: 72px;
+    padding-left: 30px;
 }
 
 .indicator-dot {
     position: absolute;
-    top: 15px;
-    left: 13px;
+    top: 14px;
+    left: 12px;
     width: 9px;
     height: 9px;
     border-radius: 50%;
@@ -893,11 +906,23 @@ select:focus {
 }
 
 .chart-wrapper {
-    height: 360px;
+    position: relative;
+    height: 320px;
+    min-height: 320px;
+    max-height: 320px;
+    overflow: hidden;
 }
 
 .compact-chart {
     height: 300px;
+    min-height: 300px;
+    max-height: 300px;
+}
+
+.chart-wrapper canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .chart-panel {
@@ -909,19 +934,19 @@ select:focus {
     border: 1px solid var(--line);
     border-radius: 999px;
     background: #fff7ed;
-    padding: 8px 12px;
+    padding: 6px 10px;
     color: #9a3412;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
 }
 
 .chart-legend-row {
     display: flex;
-    gap: 14px;
+    gap: 12px;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     color: #475467;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
 }
 
@@ -1199,11 +1224,15 @@ select:focus {
     }
 
     .chart-wrapper {
-        height: 320px;
+        height: 300px;
+        min-height: 300px;
+        max-height: 300px;
     }
 
     .compact-chart {
         height: 280px;
+        min-height: 280px;
+        max-height: 280px;
     }
 }
 
@@ -1395,3 +1424,129 @@ select:focus {
     margin-left: 8px;
 }
 
+
+/* Ajustes del panel Indicadores EVM en detalle */
+.detail-dashboard-grid {
+    align-items: stretch;
+}
+
+.chart-card,
+.evm-indicators-card {
+    height: 398px;
+    min-height: 398px;
+}
+
+.chart-card .compact-chart {
+    height: 288px;
+    min-height: 288px;
+    max-height: 288px;
+}
+
+.indicator-section-header {
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.indicator-title-row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+}
+
+.indicator-title-row .evm-legend {
+    margin-left: 0;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.evm-indicators-card .indicator-controls {
+    align-items: flex-start;
+    gap: 6px;
+    margin-left: 0;
+    padding-top: 0;
+}
+
+.evm-indicators-card .indicator-controls label {
+    display: grid;
+    gap: 3px;
+    min-width: 150px;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.evm-indicators-card .indicator-controls select {
+    min-height: 30px;
+    padding: 4px 28px 4px 8px;
+    font-size: 12px;
+}
+
+.evm-indicators-card .indicator-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(3, 72px);
+    gap: 8px;
+}
+
+.evm-indicators-card .indicator-card {
+    height: 72px !important;
+    min-height: 72px;
+    padding: 8px 8px 8px 28px;
+    overflow: hidden;
+}
+
+.evm-indicators-card .indicator-card span {
+    font-size: 11px;
+    line-height: 1.15;
+}
+
+.evm-indicators-card .indicator-card strong {
+    margin-top: 3px;
+    font-size: 14px;
+    line-height: 1.15;
+}
+
+.evm-indicators-card .indicator-dot {
+    top: 12px;
+    left: 11px;
+    width: 8px;
+    height: 8px;
+}
+
+.evm-indicators-card .indicator-desc {
+    margin-top: 3px;
+    font-size: 11px;
+    line-height: 1.15;
+    font-weight: 600;
+}
+
+.evm-indicators-card .alert-messages {
+    margin-top: 0;
+    gap: 6px;
+}
+
+.evm-indicators-card .alert-message {
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+@media (max-width: 768px) {
+    .chart-card,
+    .evm-indicators-card {
+        height: auto;
+        min-height: 0;
+    }
+
+    .indicator-section-header {
+        flex-direction: column;
+    }
+
+    .evm-indicators-card .indicator-controls,
+    .evm-indicators-card .indicator-controls label {
+        width: 100%;
+    }
+}
