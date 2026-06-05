@@ -5,6 +5,10 @@ public class IndicadoresEvmDto
     public Guid ProyectoId { get; set; }
     public Guid? CorteId { get; set; }
     public string NombreProyecto { get; set; } = string.Empty;
+    public string UnidadTiempo { get; set; } = string.Empty;
+    public decimal Duracion { get; set; }
+    public DateTime? FechaInicio { get; set; }
+    public DateTime? FechaFin { get; set; }
     public DateTime? FechaCorte { get; set; }
     public decimal PV { get; set; }
     public decimal EV { get; set; }

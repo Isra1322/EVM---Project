@@ -82,6 +82,10 @@ public class ProyectoService : IProyectoService
             ProyectoId = proyecto.Id,
             CorteId = corte.Id,
             NombreProyecto = proyecto.Nombre,
+            UnidadTiempo = proyecto.UnidadTiempo,
+            Duracion = Round(CalculateDuration(diasTotales, proyecto.UnidadTiempo)),
+            FechaInicio = proyecto.FechaInicio,
+            FechaFin = proyecto.FechaFin,
             FechaCorte = corte.FechaCorte,
             PV = Round(pv),
             EV = Round(ev),
@@ -797,6 +801,23 @@ public class ProyectoService : IProyectoService
     private static decimal Round(decimal value)
     {
         return Math.Round(value, 2);
+    }
+
+    private static decimal CalculateDuration(double totalDays, string unidadTiempo)
+    {
+        var days = (decimal)totalDays;
+
+        if (string.Equals(unidadTiempo, "Semanas", StringComparison.OrdinalIgnoreCase))
+        {
+            return days / 7;
+        }
+
+        if (string.Equals(unidadTiempo, "Meses", StringComparison.OrdinalIgnoreCase))
+        {
+            return days / 30;
+        }
+
+        return days;
     }
 
     private static decimal CalculateValueUntilCutoff(decimal totalValue, int dia, int diasHastaCorte)

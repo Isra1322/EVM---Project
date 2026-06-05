@@ -70,25 +70,49 @@ public class GeminiAIService : IAIService
         return $"""
         Eres un analista de gestion de proyectos especializado en Valor Ganado (EVM).
 
-        Genera un analisis inteligente del proyecto en espanol.
-        No inventes datos que no esten en los indicadores.
-        Usa recomendaciones concretas y breves.
+        Responde solo en espanol, con texto plano y frases claras.
+        No uses Markdown crudo: no uses #, ##, asteriscos, negritas, tablas ni simbolos innecesarios.
+        No inventes datos. Usa unicamente los datos entregados.
+        No agregues introducciones ni cierres fuera de la estructura solicitada.
+        Si un indicador no permite una conclusion exacta, dilo de forma directa sin inventar explicaciones.
 
-        Debes incluir:
-        - Diagnostico general del proyecto.
-        - Interpretacion de SPI y CPI.
-        - Riesgos principales.
-        - Que corregir.
-        - Como corregirlo.
-        - Recomendaciones concretas y breves.
+        Debes responder exactamente con esta estructura:
+
+        Estado del proyecto: Verde / Amarillo / Rojo
+
+        Diagnostico:
+        Texto breve explicando si el proyecto esta bien, en riesgo o mal.
+
+        Interpretacion de indicadores:
+        - SPI: explicar si el cronograma esta adelantado, normal o retrasado.
+        - CPI: explicar si el costo esta controlado o sobre presupuesto.
+        - EAC: explicar si el costo final estimado supera o no el BAC.
+        - TCPI: explicar que tan exigente es el rendimiento necesario para terminar dentro del presupuesto.
+
+        Desviaciones:
+        - Indicar desviaciones positivas y negativas respecto al plan usando SV, CV y VAC cuando aplique.
+
+        Recomendaciones concretas:
+        - Dar recomendaciones accionables como agregar recursos, reducir alcance, corregir estimaciones, revisar tareas criticas o controlar costos.
+
+        Para Estado del proyecto usa un solo valor:
+        Verde si SPI y CPI son mayores o iguales a 1 y no hay desviaciones negativas relevantes.
+        Amarillo si existe retraso o sobrecosto moderado, o si TCPI exige mayor rendimiento.
+        Rojo si hay retraso y sobrecosto al mismo tiempo, o si EAC supera claramente el BAC.
 
         Datos del proyecto:
         ProyectoId: {indicadores.ProyectoId}
+        CorteId: {indicadores.CorteId}
         NombreProyecto: {indicadores.NombreProyecto}
+        Duracion: {indicadores.Duracion}
+        UnidadTiempo: {indicadores.UnidadTiempo}
+        FechaInicio: {FormatDate(indicadores.FechaInicio)}
+        FechaFin: {FormatDate(indicadores.FechaFin)}
+        FechaCorte: {FormatDate(indicadores.FechaCorte)}
+        BAC: {indicadores.BAC}
         PV: {indicadores.PV}
         EV: {indicadores.EV}
         AC: {indicadores.AC}
-        BAC: {indicadores.BAC}
         SV: {indicadores.SV}
         CV: {indicadores.CV}
         SPI: {indicadores.SPI}
@@ -105,5 +129,10 @@ public class GeminiAIService : IAIService
         Resumen: {analisisBase.Resumen}
         Recomendaciones: {string.Join(" | ", analisisBase.Recomendaciones)}
         """;
+    }
+
+    private static string FormatDate(DateTime? value)
+    {
+        return value.HasValue ? value.Value.ToString("yyyy-MM-dd") : "No disponible";
     }
 }
