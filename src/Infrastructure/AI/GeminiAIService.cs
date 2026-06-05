@@ -1,8 +1,10 @@
 using System.Net.Http.Json;
+using System.Net;
 using System.Text.Json;
 using Application.DTOs;
 using Application.Interfaces;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.AI;
 
@@ -10,11 +12,16 @@ public class GeminiAIService : IAIService
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<GeminiAIService> _logger;
 
-    public GeminiAIService(HttpClient httpClient, IConfiguration configuration)
+    public GeminiAIService(
+        HttpClient httpClient,
+        IConfiguration configuration,
+        ILogger<GeminiAIService> logger)
     {
         _httpClient = httpClient;
         _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<string> GenerarAnalisisProyectoAsync(IndicadoresEvmDto indicadores, AnalisisEvmDto analisisBase)
@@ -44,21 +51,65 @@ public class GeminiAIService : IAIService
             }
         };
 
-        var response = await _httpClient.PostAsJsonAsync(url, request);
+        HttpResponseMessage response;
+
+        try
+        {
+            response = await _httpClient.PostAsJsonAsync(url, request);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Error al llamar a Gemini para el proyecto {ProyectoId}, corte {CorteId}.",
+                indicadores.ProyectoId,
+                indicadores.CorteId);
+
+            return "No se pudo generar el analisis con Gemini. Detalle tecnico: no fue posible conectar con el servicio.";
+        }
 
         if (!response.IsSuccessStatusCode)
         {
-            return "No se pudo generar el analisis con Gemini. Verifique la configuracion del servicio.";
+            var errorBody = await response.Content.ReadAsStringAsync();
+
+            _logger.LogError(
+                "Gemini respondio con error para el proyecto {ProyectoId}, corte {CorteId}. StatusCode: {StatusCode}. Body: {Body}",
+                indicadores.ProyectoId,
+                indicadores.CorteId,
+                (int)response.StatusCode,
+                errorBody);
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                return "Límite temporal de Gemini alcanzado. Intente nuevamente en unos minutos o use otra API Key.";
+            }
+
+            return $"No se pudo generar el analisis con Gemini. Detalle tecnico: Gemini respondio HTTP {(int)response.StatusCode}.";
         }
 
-        using var content = await response.Content.ReadFromJsonAsync<JsonDocument>();
-        var text = content?
-            .RootElement
-            .GetProperty("candidates")[0]
-            .GetProperty("content")
-            .GetProperty("parts")[0]
-            .GetProperty("text")
-            .GetString();
+        string? text;
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        try
+        {
+            using var content = JsonDocument.Parse(responseBody);
+            text = content
+                .RootElement
+                .GetProperty("candidates")[0]
+                .GetProperty("content")
+                .GetProperty("parts")[0]
+                .GetProperty("text")
+                .GetString();
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception,
+                "No se pudo leer la respuesta de Gemini para el proyecto {ProyectoId}, corte {CorteId}. Body: {Body}",
+                indicadores.ProyectoId,
+                indicadores.CorteId,
+                responseBody);
+
+            return "No se pudo generar el analisis con Gemini. Detalle tecnico: la respuesta del servicio no tuvo el formato esperado.";
+        }
 
         return string.IsNullOrWhiteSpace(text)
             ? "Gemini no devolvio contenido para el analisis."

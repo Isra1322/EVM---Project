@@ -38,11 +38,10 @@ async function loadProjectDetail() {
     currentProjectId = projectId;
 
     try {
-        const [projectResult, indicatorsResult, baseAnalysisResult, aiResult, curveResult] = await Promise.all([
+        const [projectResult, indicatorsResult, baseAnalysisResult, curveResult] = await Promise.all([
             requestJson(`${API_URL}/${projectId}`),
             requestJson(`${API_URL}/${projectId}/indicadores`),
             requestJson(`${API_URL}/${projectId}/analisis`),
-            requestJson(`${API_URL}/${projectId}/analisis-ia`),
             requestJson(`${API_URL}/${projectId}/curva-s`)
         ]);
 
@@ -50,7 +49,6 @@ async function loadProjectDetail() {
             projectResult.data,
             indicatorsResult.data,
             baseAnalysisResult.data,
-            aiResult.data,
             curveResult.data
         );
     } catch (error) {
@@ -58,7 +56,7 @@ async function loadProjectDetail() {
     }
 }
 
-function renderProjectDetail(project, indicators, baseAnalysis, aiAnalysis, curve) {
+function renderProjectDetail(project, indicators, baseAnalysis, curve) {
     elements.projectTitle.textContent = project.nombre ?? "Detalle del proyecto";
     elements.generalData.innerHTML = [
         buildDetailItem("Unidad de tiempo", formatUnidadTiempo(project.unidadTiempo), "info"),
@@ -72,7 +70,7 @@ function renderProjectDetail(project, indicators, baseAnalysis, aiAnalysis, curv
     renderCutoffOptions(project.cortes ?? [], indicators.corteId);
     renderIndicators(indicators);
     elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysis);
-    elements.aiAnalysis.innerHTML = buildAiAnalysis(aiAnalysis?.analisisGenerado);
+    elements.aiAnalysis.innerHTML = '<p class="summary-text">Seleccione Mostrar analisis IA para generar el analisis del corte actual.</p>';
     elements.tasksBody.innerHTML = buildReadOnlyTasks(project.tareas ?? []);
 
     renderCurveSChart(curve);
@@ -135,15 +133,25 @@ async function handleCutoffChange() {
     }
 
     try {
-        const [indicatorsResult, baseAnalysisResult, aiResult] = await Promise.all([
-            requestJson(`${API_URL}/${currentProjectId}/indicadores?corteId=${corteId}`),
-            requestJson(`${API_URL}/${currentProjectId}/analisis?corteId=${corteId}`),
-            requestJson(`${API_URL}/${currentProjectId}/analisis-ia?corteId=${corteId}`)
-        ]);
+        const encodedCorteId = encodeURIComponent(corteId);
+        const requests = [
+            requestJson(`${API_URL}/${currentProjectId}/indicadores?corteId=${encodedCorteId}`),
+            requestJson(`${API_URL}/${currentProjectId}/analisis?corteId=${encodedCorteId}`)
+        ];
+
+        if (isAiAnalysisVisible) {
+            elements.aiAnalysis.innerHTML = '<p class="summary-text">Generando analisis IA...</p>';
+            requests.push(requestJson(buildAiAnalysisUrl(currentProjectId, corteId)));
+        }
+
+        const [indicatorsResult, baseAnalysisResult, aiResult] = await Promise.all(requests);
 
         renderIndicators(indicatorsResult.data);
         elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysisResult.data);
-        elements.aiAnalysis.innerHTML = buildAiAnalysis(aiResult.data?.analisisGenerado);
+
+        if (isAiAnalysisVisible) {
+            elements.aiAnalysis.innerHTML = buildAiAnalysis(aiResult.data?.analisisGenerado);
+        }
     } catch (error) {
         showError(error.message);
     }
@@ -180,11 +188,36 @@ function buildSummaryStatus(label, value) {
     `;
 }
 
-function toggleAiAnalysis() {
+async function toggleAiAnalysis() {
     isAiAnalysisVisible = !isAiAnalysisVisible;
     elements.aiAnalysisPanel.classList.toggle("expanded", isAiAnalysisVisible);
     elements.aiAnalysisPanel.setAttribute("aria-hidden", String(!isAiAnalysisVisible));
+    if (isAiAnalysisVisible) {
+        await loadAiAnalysisForSelectedCutoff();
+    }
     elements.toggleAiAnalysisBtn.textContent = isAiAnalysisVisible ? "Ocultar análisis IA" : "Mostrar análisis IA";
+}
+
+async function loadAiAnalysisForSelectedCutoff() {
+    const corteId = elements.cutoffSelect.value;
+
+    if (!currentProjectId || !corteId) {
+        elements.aiAnalysis.innerHTML = '<p class="summary-text">No hay fecha de corte seleccionada para generar el analisis IA.</p>';
+        return;
+    }
+
+    elements.aiAnalysis.innerHTML = '<p class="summary-text">Generando analisis IA...</p>';
+
+    try {
+        const aiResult = await requestJson(buildAiAnalysisUrl(currentProjectId, corteId));
+        elements.aiAnalysis.innerHTML = buildAiAnalysis(aiResult.data?.analisisGenerado);
+    } catch (error) {
+        elements.aiAnalysis.innerHTML = `<p class="summary-text">${escapeHtml(error.message)}</p>`;
+    }
+}
+
+function buildAiAnalysisUrl(projectId, corteId) {
+    return `${API_URL}/${projectId}/analisis-ia?corteId=${encodeURIComponent(corteId)}`;
 }
 
 function renderCurveSChart(curve) {
@@ -366,7 +399,7 @@ function buildReadOnlyTasks(tasks) {
         return '<tr><td colspan="6" class="empty-state">No hay tareas EDT registradas.</td></tr>';
     }
 
-    return tasks.map((task, index) => `
+    return sortTasksByOrder(tasks).map((task, index) => `
         <tr>
             <td>${index + 1}</td>
             <td>${escapeHtml(task.nombre)}</td>
@@ -376,6 +409,15 @@ function buildReadOnlyTasks(tasks) {
             <td>${escapeHtml(task.responsable)}</td>
         </tr>
     `).join("");
+}
+
+function sortTasksByOrder(tasks) {
+    return [...tasks].sort((left, right) => {
+        const leftOrder = Number(left.orden) || Number.MAX_SAFE_INTEGER;
+        const rightOrder = Number(right.orden) || Number.MAX_SAFE_INTEGER;
+
+        return leftOrder - rightOrder;
+    });
 }
 
 function buildAiAnalysis(markdownText) {

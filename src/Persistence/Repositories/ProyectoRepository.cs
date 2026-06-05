@@ -17,7 +17,9 @@ public class ProyectoRepository : IProyectoRepository
     public async Task<List<Proyecto>> GetAllAsync()
     {
         return await _context.Proyectos
-            .Include(proyecto => proyecto.Tareas)
+            .Include(proyecto => proyecto.Tareas
+                .OrderBy(tarea => tarea.Orden == 0 ? int.MaxValue : tarea.Orden)
+                .ThenBy(tarea => tarea.Id))
             .Include(proyecto => proyecto.Cortes)
             .ToListAsync();
     }
@@ -25,7 +27,9 @@ public class ProyectoRepository : IProyectoRepository
     public async Task<Proyecto?> GetByIdAsync(Guid id)
     {
         return await _context.Proyectos
-            .Include(proyecto => proyecto.Tareas)
+            .Include(proyecto => proyecto.Tareas
+                .OrderBy(tarea => tarea.Orden == 0 ? int.MaxValue : tarea.Orden)
+                .ThenBy(tarea => tarea.Id))
             .Include(proyecto => proyecto.Cortes)
             .FirstOrDefaultAsync(proyecto => proyecto.Id == id);
     }

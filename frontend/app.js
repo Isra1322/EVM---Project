@@ -125,7 +125,7 @@ function openEditProjectModal(project) {
     document.getElementById("asistenteProyecto").value = project.asistenteProyecto ?? "";
     document.getElementById("fechaInicio").value = toInputDate(project.fechaInicio);
 
-    const tasks = project.tareas?.length ? project.tareas : [{}];
+    const tasks = project.tareas?.length ? sortTasksByOrder(project.tareas) : [{}];
     tasks.forEach((task) => addTaskRow(task));
 
     const cutoffs = project.cortes?.length
@@ -166,9 +166,19 @@ function addTaskRow(task = {}) {
             <input type="text" data-field="responsable" value="${escapeAttribute(task.responsable ?? "")}" required>
         </td>
         <td>
+            <button type="button" class="secondary-button" data-action="move-up" title="Subir tarea">↑</button>
+            <button type="button" class="secondary-button" data-action="move-down" title="Bajar tarea">↓</button>
             <button type="button" class="danger-button">Quitar</button>
         </td>
     `;
+
+    row.querySelector('[data-action="move-up"]').addEventListener("click", () => {
+        moveTaskRow(row, -1);
+    });
+
+    row.querySelector('[data-action="move-down"]').addEventListener("click", () => {
+        moveTaskRow(row, 1);
+    });
 
     row.querySelector(".danger-button").addEventListener("click", () => {
         row.remove();
@@ -282,10 +292,11 @@ function buildProjectPayload() {
 }
 
 function getTaskPayload() {
-    return Array.from(elements.tasksTableBody.querySelectorAll(".task-row")).map((row) => {
+    return Array.from(elements.tasksTableBody.querySelectorAll(".task-row")).map((row, index) => {
         const id = row.querySelector('[data-field="id"]').value;
         const tarea = {
             nombre: row.querySelector('[data-field="nombre"]').value.trim(),
+            orden: index + 1,
             duracionDias: Number(row.querySelector('[data-field="duracionDias"]').value),
             predecesoras: row.querySelector('[data-field="predecesoras"]').value.trim(),
             costo: Number(row.querySelector('[data-field="costo"]').value),
@@ -297,6 +308,15 @@ function getTaskPayload() {
         }
 
         return tarea;
+    });
+}
+
+function sortTasksByOrder(tasks) {
+    return [...tasks].sort((left, right) => {
+        const leftOrder = Number(left.orden) || Number.MAX_SAFE_INTEGER;
+        const rightOrder = Number(right.orden) || Number.MAX_SAFE_INTEGER;
+
+        return leftOrder - rightOrder;
     });
 }
 
@@ -435,6 +455,19 @@ function renumberTasks() {
     elements.tasksTableBody.querySelectorAll(".task-row").forEach((row, index) => {
         row.querySelector("[data-row-number]").textContent = index + 1;
     });
+}
+
+function moveTaskRow(row, direction) {
+    if (direction < 0 && row.previousElementSibling) {
+        elements.tasksTableBody.insertBefore(row, row.previousElementSibling);
+    }
+
+    if (direction > 0 && row.nextElementSibling) {
+        elements.tasksTableBody.insertBefore(row.nextElementSibling, row);
+    }
+
+    renumberTasks();
+    updateProjectSummary();
 }
 
 function formatDate(value) {

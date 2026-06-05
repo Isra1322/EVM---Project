@@ -14,6 +14,9 @@ public class TareaEDTConfiguration : IEntityTypeConfiguration<TareaEDT>
             .IsRequired()
             .HasMaxLength(150);
 
+        builder.Property(tarea => tarea.Orden)
+            .IsRequired();
+
         builder.Property(tarea => tarea.Responsable)
             .IsRequired()
             .HasMaxLength(120);

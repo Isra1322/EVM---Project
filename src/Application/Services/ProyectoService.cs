@@ -274,11 +274,12 @@ public class ProyectoService : IProyectoService
             CostoRealAC = GetCompatibilityCostoRealAC(dto.Cortes, dto.CostoRealAC),
             PresupuestoBAC = dto.PresupuestoBAC,
             FechaCreacion = DateTime.UtcNow,
-            Tareas = dto.Tareas.Select(tarea => new TareaEDT
+            Tareas = dto.Tareas.Select((tarea, index) => new TareaEDT
             {
                 Id = Guid.NewGuid(),
                 ProyectoId = proyectoId,
                 Nombre = tarea.Nombre.Trim(),
+                Orden = index + 1,
                 DuracionDias = tarea.DuracionDias,
                 Predecesoras = tarea.Predecesoras,
                 Costo = tarea.Costo,
@@ -632,8 +633,11 @@ public class ProyectoService : IProyectoService
             proyecto.Tareas.Remove(tarea);
         }
 
-        foreach (var tareaDto in tareasDto)
+        for (var index = 0; index < tareasDto.Count; index++)
         {
+            var tareaDto = tareasDto[index];
+            var orden = index + 1;
+
             if (tareaDto.Id.HasValue)
             {
                 var tareaExistente = proyecto.Tareas.FirstOrDefault(tarea => tarea.Id == tareaDto.Id.Value);
@@ -641,6 +645,7 @@ public class ProyectoService : IProyectoService
                 if (tareaExistente is not null)
                 {
                     tareaExistente.Nombre = tareaDto.Nombre.Trim();
+                    tareaExistente.Orden = orden;
                     tareaExistente.DuracionDias = tareaDto.DuracionDias;
                     tareaExistente.Predecesoras = tareaDto.Predecesoras;
                     tareaExistente.Costo = tareaDto.Costo;
@@ -655,6 +660,7 @@ public class ProyectoService : IProyectoService
                 Id = Guid.NewGuid(),
                 ProyectoId = proyecto.Id,
                 Nombre = tareaDto.Nombre.Trim(),
+                Orden = orden,
                 DuracionDias = tareaDto.DuracionDias,
                 Predecesoras = tareaDto.Predecesoras,
                 Costo = tareaDto.Costo,
@@ -764,7 +770,11 @@ public class ProyectoService : IProyectoService
             CostoRealAC = proyecto.CostoRealAC,
             PresupuestoBAC = proyecto.PresupuestoBAC,
             FechaCreacion = proyecto.FechaCreacion,
-            Tareas = proyecto.Tareas.Select(MapToResponseDto).ToList(),
+            Tareas = proyecto.Tareas
+                .OrderBy(tarea => tarea.Orden == 0 ? int.MaxValue : tarea.Orden)
+                .ThenBy(tarea => tarea.Id)
+                .Select(MapToResponseDto)
+                .ToList(),
             Cortes = proyecto.Cortes
                 .OrderBy(corte => corte.FechaCorte)
                 .Select(MapToResponseDto)
@@ -779,6 +789,7 @@ public class ProyectoService : IProyectoService
             Id = tarea.Id,
             ProyectoId = tarea.ProyectoId,
             Nombre = tarea.Nombre,
+            Orden = tarea.Orden,
             DuracionDias = tarea.DuracionDias,
             Predecesoras = tarea.Predecesoras,
             Costo = tarea.Costo,
