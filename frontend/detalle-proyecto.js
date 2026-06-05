@@ -235,8 +235,8 @@ function renderCurveSChart(curve) {
             labels,
             datasets: [
                 buildDataset("PV", curve.puntos.map((point) => point.pv), "#1e40af"),
-                buildDataset("EV", curve.puntos.map((point) => point.ev), "#16a34a"),
-                buildDataset("AC", curve.puntos.map((point) => point.ac), "#8b5cf6")
+                buildDataset("EV", buildCutoffSeries(labels, curve.cortes ?? [], "ev"), "#16a34a", true),
+                buildDataset("AC", buildCutoffSeries(labels, curve.cortes ?? [], "ac"), "#8b5cf6", true)
             ]
         },
         options: {
@@ -278,6 +278,17 @@ function renderCurveSChart(curve) {
     });
 }
 
+function buildCutoffSeries(labels, cortes, field) {
+    const valuesByDate = new Map(
+        cortes.map((corte) => [
+            formatDate(corte.fechaCorte),
+            field === "ev" ? corte.ev : corte.ac
+        ])
+    );
+
+    return labels.map((label) => valuesByDate.has(label) ? valuesByDate.get(label) : null);
+}
+
 function buildCutoffAnnotations(cortes) {
     return cortes.reduce((annotations, corte, index) => {
         annotations[`lineCorte${index}`] = {
@@ -302,7 +313,7 @@ function buildCutoffAnnotations(cortes) {
         return annotations;
     }, {});
 }
-function buildDataset(label, data, color) {
+function buildDataset(label, data, color, spanGaps = false) {
     return {
         label,
         data,
@@ -310,6 +321,7 @@ function buildDataset(label, data, color) {
         backgroundColor: color,
         borderWidth: 2,
         pointRadius: 2,
+        spanGaps,
         tension: 0.2
     };
 }

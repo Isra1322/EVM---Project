@@ -54,20 +54,31 @@ public class ProyectoService : IProyectoService
                 : "El proyecto no tiene fechas de corte registradas");
         }
 
-        var diasTotales = (proyecto.FechaFin.Date - proyecto.FechaInicio.Date).TotalDays;
+        var fechaFinCalculada = TryCalculateProjectEndDate(
+            proyecto.FechaInicio,
+            proyecto.UnidadTiempo,
+            proyecto.Tareas.Select(tarea => (tarea.DuracionDias, tarea.Predecesoras)),
+            out var fechaFinIndicadores,
+            out var fechaFinError)
+            ? fechaFinIndicadores
+            : proyecto.FechaFin.Date;
+
+        if (fechaFinError is not null)
+        {
+            return ServiceResult<IndicadoresEvmDto>.Fail(fechaFinError);
+        }
+        var diasTotales = (fechaFinCalculada - proyecto.FechaInicio.Date).TotalDays;
 
         if (diasTotales <= 0)
         {
             return ServiceResult<IndicadoresEvmDto>.Fail("Los dias totales del proyecto deben ser mayores a cero");
         }
 
-        var diasTranscurridos = (corte.FechaCorte.Date - proyecto.FechaInicio.Date).TotalDays;
-        var avancePlaneado = (decimal)(diasTranscurridos / diasTotales);
-
         var bac = proyecto.PresupuestoBAC;
         var ev = corte.ValorGanadoEV;
         var ac = corte.CostoRealAC;
-        var pv = bac * avancePlaneado;
+        var plannedCurve = BuildPlannedValueCurve(proyecto, bac);
+        var pv = GetPlannedValueAtDate(plannedCurve, corte.FechaCorte.Date);
         var sv = ev - pv;
         var cv = ev - ac;
         var spi = pv == 0 ? 0 : ev / pv;
@@ -85,7 +96,7 @@ public class ProyectoService : IProyectoService
             UnidadTiempo = proyecto.UnidadTiempo,
             Duracion = Round(CalculateDuration(diasTotales, proyecto.UnidadTiempo)),
             FechaInicio = proyecto.FechaInicio,
-            FechaFin = proyecto.FechaFin,
+            FechaFin = fechaFinCalculada,
             FechaCorte = corte.FechaCorte,
             PV = Round(pv),
             EV = Round(ev),
@@ -198,33 +209,46 @@ public class ProyectoService : IProyectoService
             return ServiceResult<CurvaSDto>.Fail("Proyecto no encontrado");
         }
 
-        if (proyecto.FechaFin.Date <= proyecto.FechaInicio.Date)
+        var fechaFinCalculada = TryCalculateProjectEndDate(
+            proyecto.FechaInicio,
+            proyecto.UnidadTiempo,
+            proyecto.Tareas.Select(tarea => (tarea.DuracionDias, tarea.Predecesoras)),
+            out var fechaFinCurva,
+            out var fechaFinError)
+            ? fechaFinCurva
+            : proyecto.FechaFin.Date;
+
+        if (fechaFinError is not null)
+        {
+            return ServiceResult<CurvaSDto>.Fail(fechaFinError);
+        }
+
+        if (fechaFinCalculada <= proyecto.FechaInicio.Date)
         {
             return ServiceResult<CurvaSDto>.Fail("La fecha fin debe ser mayor que la fecha inicio");
         }
 
-        var diasTotales = (int)(proyecto.FechaFin.Date - proyecto.FechaInicio.Date).TotalDays;
-        var ultimoCorte = SelectCorte(proyecto);
-        var diasHastaCorte = ultimoCorte is null
-            ? 0
-            : (int)(ultimoCorte.FechaCorte.Date - proyecto.FechaInicio.Date).TotalDays;
+        var diasTotales = (int)(fechaFinCalculada - proyecto.FechaInicio.Date).TotalDays;
         var bac = proyecto.PresupuestoBAC;
+        var plannedCurve = BuildPlannedValueCurve(proyecto, bac);
+        var cortesPorFecha = proyecto.Cortes
+            .GroupBy(corte => corte.FechaCorte.Date)
+            .ToDictionary(group => group.Key, group => group.OrderBy(corte => corte.FechaCorte).Last());
         var puntos = new List<PuntoCurvaSDto>();
 
         for (var dia = 0; dia <= diasTotales; dia++)
         {
             var fecha = proyecto.FechaInicio.Date.AddDays(dia);
-            var pv = bac * dia / diasTotales;
-            var ev = CalculateValueUntilCutoff(ultimoCorte?.ValorGanadoEV ?? 0, dia, diasHastaCorte);
-            var ac = CalculateValueUntilCutoff(ultimoCorte?.CostoRealAC ?? 0, dia, diasHastaCorte);
+            var pv = GetPlannedValueAtDate(plannedCurve, fecha);
+            cortesPorFecha.TryGetValue(fecha, out var corte);
 
             puntos.Add(new PuntoCurvaSDto
             {
                 Dia = dia,
                 Fecha = fecha,
                 PV = Round(pv),
-                EV = Round(ev),
-                AC = Round(ac),
+                EV = Round(corte?.ValorGanadoEV ?? 0),
+                AC = Round(corte?.CostoRealAC ?? 0),
                 BAC = Round(bac)
             });
         }
@@ -260,6 +284,16 @@ public class ProyectoService : IProyectoService
         }
 
         var proyectoId = Guid.NewGuid();
+        if (!TryCalculateProjectEndDate(
+            dto.FechaInicio,
+            dto.UnidadTiempo,
+            dto.Tareas.Select(tarea => (tarea.DuracionDias, tarea.Predecesoras)),
+            out var fechaFinCalculada,
+            out var fechaFinError))
+        {
+            return ServiceResult<ProyectoResponseDto>.Fail(fechaFinError ?? "No se pudo calcular la fecha fin del proyecto");
+        }
+
         var proyecto = new Proyecto
         {
             Id = proyectoId,
@@ -268,7 +302,7 @@ public class ProyectoService : IProyectoService
             AdministradorProyecto = dto.AdministradorProyecto.Trim(),
             AsistenteProyecto = dto.AsistenteProyecto.Trim(),
             FechaInicio = dto.FechaInicio,
-            FechaFin = dto.FechaFin,
+            FechaFin = fechaFinCalculada,
             FechaCorte = GetCompatibilityFechaCorte(dto.Cortes, dto.FechaCorte),
             ValorGanadoEV = GetCompatibilityValorGanadoEV(dto.Cortes, dto.ValorGanadoEV),
             CostoRealAC = GetCompatibilityCostoRealAC(dto.Cortes, dto.CostoRealAC),
@@ -325,7 +359,17 @@ public class ProyectoService : IProyectoService
         proyecto.AdministradorProyecto = dto.AdministradorProyecto.Trim();
         proyecto.AsistenteProyecto = dto.AsistenteProyecto.Trim();
         proyecto.FechaInicio = dto.FechaInicio;
-        proyecto.FechaFin = dto.FechaFin;
+        if (!TryCalculateProjectEndDate(
+            dto.FechaInicio,
+            dto.UnidadTiempo,
+            dto.Tareas.Select(tarea => (tarea.DuracionDias, tarea.Predecesoras)),
+            out var fechaFinCalculada,
+            out var fechaFinError))
+        {
+            return ServiceResult<ProyectoResponseDto>.Fail(fechaFinError ?? "No se pudo calcular la fecha fin del proyecto");
+        }
+
+        proyecto.FechaFin = fechaFinCalculada;
         proyecto.FechaCorte = GetCompatibilityFechaCorte(dto.Cortes, dto.FechaCorte);
         proyecto.ValorGanadoEV = GetCompatibilityValorGanadoEV(dto.Cortes, dto.ValorGanadoEV);
         proyecto.CostoRealAC = GetCompatibilityCostoRealAC(dto.Cortes, dto.CostoRealAC);
@@ -431,7 +475,16 @@ public class ProyectoService : IProyectoService
         }
 
         var bacCalculado = tareasList.Sum(tarea => tarea.Costo);
-        var duracionTotal = tareasList.Sum(tarea => tarea.DuracionDias);
+        if (!TryCalculateProjectDurationDays(
+            unidadTiempo,
+            tareasList.Select(tarea => (tarea.DuracionDias, tarea.Predecesoras)),
+            out var duracionTotal,
+            out var scheduleError))
+        {
+            return scheduleError ?? "No se pudo calcular la duracion del proyecto desde la EDT";
+        }
+
+        var fechaFinCalculada = fechaInicio.Date.AddDays(duracionTotal);
 
         if (bacCalculado <= 0)
         {
@@ -443,7 +496,7 @@ public class ProyectoService : IProyectoService
             return "La duracion total de las tareas EDT debe ser mayor a cero";
         }
 
-        if (fechaFin <= fechaInicio)
+        if (fechaFinCalculada <= fechaInicio.Date)
         {
             return "La fecha fin debe ser mayor que la fecha inicio";
         }
@@ -455,7 +508,7 @@ public class ProyectoService : IProyectoService
             return "Debe registrar al menos una fecha de corte";
         }
 
-        if (cortesList.Any(corte => corte.FechaCorte < fechaInicio || corte.FechaCorte > fechaFin))
+        if (cortesList.Any(corte => corte.FechaCorte.Date < fechaInicio.Date || corte.FechaCorte.Date > fechaFinCalculada))
         {
             return "Cada fecha de corte debe estar entre la fecha inicio y la fecha fin";
         }
@@ -463,6 +516,11 @@ public class ProyectoService : IProyectoService
         if (cortesList.Any(corte => corte.ValorGanadoEV < 0))
         {
             return "El valor ganado EV no puede ser negativo";
+        }
+
+        if (cortesList.Any(corte => corte.ValorGanadoEV > bacCalculado))
+        {
+            return "El valor ganado EV no puede ser mayor que el BAC del proyecto";
         }
 
         if (cortesList.Any(corte => corte.CostoRealAC < 0))
@@ -756,6 +814,15 @@ public class ProyectoService : IProyectoService
 
     private static ProyectoResponseDto MapToResponseDto(Proyecto proyecto)
     {
+        var fechaFinCalculada = TryCalculateProjectEndDate(
+            proyecto.FechaInicio,
+            proyecto.UnidadTiempo,
+            proyecto.Tareas.Select(tarea => (tarea.DuracionDias, tarea.Predecesoras)),
+            out var fechaFinMapeada,
+            out _)
+            ? fechaFinMapeada
+            : proyecto.FechaFin.Date;
+
         return new ProyectoResponseDto
         {
             Id = proyecto.Id,
@@ -764,7 +831,7 @@ public class ProyectoService : IProyectoService
             AdministradorProyecto = proyecto.AdministradorProyecto,
             AsistenteProyecto = proyecto.AsistenteProyecto,
             FechaInicio = proyecto.FechaInicio,
-            FechaFin = proyecto.FechaFin,
+            FechaFin = fechaFinCalculada,
             FechaCorte = proyecto.FechaCorte,
             ValorGanadoEV = proyecto.ValorGanadoEV,
             CostoRealAC = proyecto.CostoRealAC,
@@ -808,6 +875,240 @@ public class ProyectoService : IProyectoService
             CostoRealAC = corte.CostoRealAC
         };
     }
+
+    private static bool TryCalculateProjectEndDate(
+        DateTime fechaInicio,
+        string unidadTiempo,
+        IEnumerable<(int DuracionDias, string? Predecesoras)> tareas,
+        out DateTime fechaFin,
+        out string? error)
+    {
+        fechaFin = fechaInicio.Date;
+
+        if (!TryCalculateProjectDurationDays(unidadTiempo, tareas, out var duracionCriticaDias, out error))
+        {
+            return false;
+        }
+
+        fechaFin = fechaInicio.Date.AddDays(duracionCriticaDias);
+
+        return true;
+    }
+
+    private static bool TryCalculateProjectDurationDays(
+        string unidadTiempo,
+        IEnumerable<(int DuracionDias, string? Predecesoras)> tareas,
+        out int durationDays,
+        out string? error)
+    {
+        durationDays = 0;
+        var taskList = tareas.ToList();
+
+        if (taskList.Count == 0)
+        {
+            error = null;
+            return true;
+        }
+
+        if (!TryBuildEarlySchedule(
+            unidadTiempo,
+            taskList.Select(tarea => (tarea.DuracionDias, tarea.Predecesoras)),
+            out var schedule,
+            out error))
+        {
+            return false;
+        }
+
+        durationDays = schedule.EarlyFinishByTask.Max();
+
+        return true;
+    }
+
+    private static SortedDictionary<DateTime, decimal> BuildPlannedValueCurve(Proyecto proyecto, decimal bac)
+    {
+        var startDate = proyecto.FechaInicio.Date;
+        var endDate = TryCalculateProjectEndDate(
+            proyecto.FechaInicio,
+            proyecto.UnidadTiempo,
+            proyecto.Tareas.Select(tarea => (tarea.DuracionDias, tarea.Predecesoras)),
+            out var calculatedEndDate,
+            out _)
+            ? calculatedEndDate
+            : proyecto.FechaFin.Date;
+        var tasks = proyecto.Tareas
+            .OrderBy(tarea => tarea.Orden == 0 ? int.MaxValue : tarea.Orden)
+            .ThenBy(tarea => tarea.Id)
+            .ToList();
+        var dailyPlannedCost = new Dictionary<int, decimal>();
+        if (!TryBuildEarlySchedule(
+            proyecto.UnidadTiempo,
+            tasks.Select(task => (task.DuracionDias, task.Predecesoras)),
+            out var schedule,
+            out _))
+        {
+            return new SortedDictionary<DateTime, decimal>
+            {
+                [startDate] = 0,
+                [endDate] = Round(bac)
+            };
+        }
+
+        for (var index = 0; index < tasks.Count; index++)
+        {
+            var task = tasks[index];
+            var earlyStart = schedule.EarlyStartByTask[index];
+            var earlyFinish = schedule.EarlyFinishByTask[index];
+            var durationDays = schedule.DurationDaysByTask[index];
+            var plannedCostPerDay = task.Costo / durationDays;
+
+            for (var day = earlyStart + 1; day <= earlyFinish; day++)
+            {
+                dailyPlannedCost[day] = dailyPlannedCost.GetValueOrDefault(day) + plannedCostPerDay;
+            }
+        }
+
+        var curve = new SortedDictionary<DateTime, decimal>();
+        var totalDays = Math.Max(0, (int)(endDate - startDate).TotalDays);
+        var accumulated = 0m;
+
+        for (var day = 0; day <= totalDays; day++)
+        {
+            accumulated += dailyPlannedCost.GetValueOrDefault(day);
+
+            if (day == totalDays && accumulated > bac)
+            {
+                accumulated = bac;
+            }
+
+            curve[startDate.AddDays(day)] = Round(accumulated);
+        }
+
+        return curve;
+    }
+
+    private static bool TryBuildEarlySchedule(
+        string unidadTiempo,
+        IEnumerable<(int DuracionDias, string? Predecesoras)> tareas,
+        out EarlySchedule schedule,
+        out string? error)
+    {
+        var taskList = tareas.ToList();
+        var predecessorNumbersByTask = new List<int>[taskList.Count];
+        var durationDaysByTask = new int[taskList.Count];
+        var earlyStartByTask = new int[taskList.Count];
+        var earlyFinishByTask = new int[taskList.Count];
+        var stateByTask = new int[taskList.Count];
+        string? scheduleError = null;
+
+        schedule = new EarlySchedule(earlyStartByTask, earlyFinishByTask, durationDaysByTask);
+        error = null;
+
+        for (var index = 0; index < taskList.Count; index++)
+        {
+            var task = taskList[index];
+            var taskNumber = index + 1;
+            predecessorNumbersByTask[index] = ParsearPredecesoras(task.Predecesoras, taskNumber, taskList.Count, out var parseError);
+
+            if (parseError is not null)
+            {
+                error = parseError;
+                return false;
+            }
+
+            durationDaysByTask[index] = ConvertTaskDurationToDays(task.DuracionDias, unidadTiempo);
+        }
+
+        for (var index = 0; index < taskList.Count; index++)
+        {
+            if (!TryCalculateEarlySchedule(index))
+            {
+                error = scheduleError ?? "No se pudo calcular la planificacion EDT";
+                return false;
+            }
+        }
+
+        return true;
+
+        bool TryCalculateEarlySchedule(int taskIndex)
+        {
+            if (stateByTask[taskIndex] == 2)
+            {
+                return true;
+            }
+
+            if (stateByTask[taskIndex] == 1)
+            {
+                scheduleError = $"Se detecto una dependencia circular en la tarea {taskIndex + 1}";
+                return false;
+            }
+
+            stateByTask[taskIndex] = 1;
+            var predecessors = predecessorNumbersByTask[taskIndex];
+            var earlyStart = 0;
+
+            foreach (var predecessor in predecessors)
+            {
+                var predecessorIndex = predecessor - 1;
+
+                if (!TryCalculateEarlySchedule(predecessorIndex))
+                {
+                    return false;
+                }
+
+                earlyStart = Math.Max(earlyStart, earlyFinishByTask[predecessorIndex]);
+            }
+
+            earlyStartByTask[taskIndex] = earlyStart;
+            earlyFinishByTask[taskIndex] = earlyStart + durationDaysByTask[taskIndex];
+            stateByTask[taskIndex] = 2;
+
+            return true;
+        }
+    }
+
+    private static decimal GetPlannedValueAtDate(SortedDictionary<DateTime, decimal> plannedCurve, DateTime date)
+    {
+        if (plannedCurve.Count == 0)
+        {
+            return 0;
+        }
+
+        var targetDate = date.Date;
+        var firstPoint = plannedCurve.First();
+        var lastPoint = plannedCurve.Last();
+
+        if (targetDate <= firstPoint.Key)
+        {
+            return firstPoint.Value;
+        }
+
+        if (targetDate >= lastPoint.Key)
+        {
+            return lastPoint.Value;
+        }
+
+        return plannedCurve.Last(point => point.Key <= targetDate).Value;
+    }
+
+    private static int ConvertTaskDurationToDays(int duration, string unidadTiempo)
+    {
+        if (string.Equals(unidadTiempo, "Semanas", StringComparison.OrdinalIgnoreCase))
+        {
+            return duration * 7;
+        }
+
+        if (string.Equals(unidadTiempo, "Meses", StringComparison.OrdinalIgnoreCase))
+        {
+            return duration * 30;
+        }
+
+        return duration;
+    }
+
+    private sealed record EarlySchedule(
+        int[] EarlyStartByTask,
+        int[] EarlyFinishByTask,
+        int[] DurationDaysByTask);
 
     private static decimal Round(decimal value)
     {
