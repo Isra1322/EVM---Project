@@ -11,6 +11,7 @@ const elements = {
     refreshBtn: document.getElementById("refreshBtn"),
     projectModal: document.getElementById("projectModal"),
     projectModalTitle: document.getElementById("projectModalTitle"),
+    projectModalSubtitle: document.getElementById("projectModalSubtitle"),
     projectForm: document.getElementById("projectForm"),
     projectId: document.getElementById("projectId"),
     tasksTableBody: document.getElementById("tasksTableBody"),
@@ -101,6 +102,7 @@ function renderProjects() {
 
 function openCreateProjectModal() {
     elements.projectModalTitle.textContent = "Crear proyecto";
+    elements.projectModalSubtitle.textContent = "Completa la informacion para registrar un nuevo proyecto.";
     elements.projectForm.reset();
     elements.projectId.value = "";
     elements.tasksTableBody.innerHTML = "";
@@ -114,6 +116,7 @@ function openCreateProjectModal() {
 
 function openEditProjectModal(project) {
     elements.projectModalTitle.textContent = "Editar proyecto";
+    elements.projectModalSubtitle.textContent = "Actualiza la informacion del proyecto existente.";
     elements.projectForm.reset();
     elements.tasksTableBody.innerHTML = "";
     elements.cutoffsTableBody.innerHTML = "";
@@ -166,9 +169,13 @@ function addTaskRow(task = {}) {
             <input type="text" data-field="responsable" value="${escapeAttribute(task.responsable ?? "")}" required>
         </td>
         <td>
-            <button type="button" class="secondary-button" data-action="move-up" title="Subir tarea">↑</button>
-            <button type="button" class="secondary-button" data-action="move-down" title="Bajar tarea">↓</button>
-            <button type="button" class="danger-button">Quitar</button>
+            <div class="row-actions">
+            <button type="button" class="action-btn btn-move" data-action="move-up" aria-label="Subir tarea" title="Subir tarea">↑</button>
+            <button type="button" class="action-btn btn-move" data-action="move-down" aria-label="Bajar tarea" title="Bajar tarea">↓</button>
+            <button type="button" class="action-btn btn-delete danger-button delete-icon" title="Quitar" aria-label="Quitar">
+                <img src="../Resources/iconbasura.png" alt="Eliminar">
+            </button>
+            </div>
         </td>
     `;
 
@@ -212,7 +219,9 @@ function addCutoffRow(cutoff = {}) {
             <input type="number" data-field="costoRealAC" min="0" step="0.01" value="${cutoff.costoRealAC ?? 0}" required>
         </td>
         <td>
-            <button type="button" class="danger-button">Quitar</button>
+            <button type="button" class="action-btn btn-delete danger-button delete-icon" title="Quitar" aria-label="Quitar">
+                <img src="../Resources/iconbasura.png" alt="Eliminar">
+            </button>
         </td>
     `;
 

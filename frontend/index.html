@@ -73,20 +73,43 @@
             </section>
     </main>
 
-    <div id="projectModal" class="modal hidden" aria-hidden="true">
-        <div class="modal-content large-modal">
-            <div class="modal-header">
-                <h2 id="projectModalTitle">Crear proyecto</h2>
+    <div id="projectModal" class="modal project-modal hidden" aria-hidden="true">
+        <div class="modal-content large-modal project-modal-content">
+            <div class="modal-header project-modal-header">
+                <div class="project-modal-title-group">
+                    <span class="project-modal-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M9 6.5V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5"></path>
+                            <path d="M4.5 7.5h15v10A2.5 2.5 0 0 1 17 20H7a2.5 2.5 0 0 1-2.5-2.5v-10Z"></path>
+                            <path d="M9 12h6M12 9v6"></path>
+                        </svg>
+                    </span>
+                    <div>
+                        <h2 id="projectModalTitle">Crear proyecto</h2>
+                        <p id="projectModalSubtitle">Completa la informacion para registrar un nuevo proyecto.</p>
+                    </div>
+                </div>
                 <button class="icon-button" data-close-modal="projectModal" aria-label="Cerrar">×</button>
             </div>
 
             <form id="projectForm">
                 <input type="hidden" id="projectId">
 
-                <div class="form-grid">
+                <section class="modal-section">
+                    <div class="modal-section-title">
+                        <span class="modal-section-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M5 4.5h14v15H5z"></path>
+                                <path d="M8 8h8M8 12h8M8 16h5"></path>
+                            </svg>
+                        </span>
+                        <h3>Informacion general</h3>
+                    </div>
+
+                    <div class="form-grid">
                     <label>
                         Nombre
-                        <input type="text" id="nombre" required>
+                        <input type="text" id="nombre" placeholder="Ej: Sistema de Inventario" required>
                     </label>
                     <label>
                         Unidad de tiempo
@@ -98,22 +121,35 @@
                     </label>
                     <label>
                         Administrador del Proyecto
-                        <input type="text" id="administradorProyecto" required>
+                        <input type="text" id="administradorProyecto" placeholder="Selecciona o escribe el administrador" required>
                     </label>
                     <label>
                         Asistente del Proyecto
-                        <input type="text" id="asistenteProyecto" required>
+                        <input type="text" id="asistenteProyecto" placeholder="Selecciona o escribe el asistente" required>
                     </label>
                     <label>
                         Fecha inicio
                         <input type="date" id="fechaInicio" required>
                     </label>
-                </div>
+                    </div>
+                </section>
 
-                <div class="tasks-header">
-                    <h3>Tareas EDT</h3>
-                    <button type="button" id="addTaskBtn" class="secondary-button">Agregar tarea</button>
-                </div>
+                <section class="modal-section">
+                    <div class="tasks-header">
+                        <div class="modal-section-title">
+                            <span class="modal-section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M8 6h12M8 12h12M8 18h12"></path>
+                                    <path d="M4 6h.01M4 12h.01M4 18h.01"></path>
+                                </svg>
+                            </span>
+                            <h3>Tareas EDT</h3>
+                        </div>
+                        <button type="button" id="addTaskBtn" class="secondary-button modal-add-button">
+                            <span aria-hidden="true">+</span>
+                            Agregar tarea
+                        </button>
+                    </div>
 
                 <div class="edt-table-wrapper">
                     <table class="edt-table">
@@ -132,30 +168,61 @@
                     </table>
                 </div>
 
-                <section class="auto-summary" aria-label="Resumen automatico del proyecto">
-                    <article class="auto-summary-item">
-                        <span>BAC calculado</span>
-                        <strong id="calculatedBAC">0.00</strong>
+                <div class="auto-summary" aria-label="Resumen automatico del proyecto">
+                    <article class="auto-summary-item auto-summary-bac">
+                        <span class="auto-summary-icon summary-icon" aria-hidden="true">
+                            <img src="../Resources/bolsadinero.png" alt="">
+                        </span>
+                        <div>
+                            <span>BAC calculado</span>
+                            <strong id="calculatedBAC">0.00</strong>
+                            <small>Presupuesto total</small>
+                        </div>
                     </article>
-                    <article class="auto-summary-item">
-                        <span>Duracion total</span>
-                        <strong id="calculatedDuration">0 dias</strong>
+                    <article class="auto-summary-item auto-summary-duration">
+                        <span class="auto-summary-icon summary-icon" aria-hidden="true">
+                            <img src="../Resources/reloj.png" alt="">
+                        </span>
+                        <div>
+                            <span>Duracion total</span>
+                            <strong id="calculatedDuration">0 dias</strong>
+                            <small>Duracion estimada</small>
+                        </div>
                     </article>
-                    <article class="auto-summary-item">
-                        <span>Fecha fin estimada</span>
-                        <strong id="calculatedEndDate">-</strong>
+                    <article class="auto-summary-item auto-summary-end">
+                        <span class="auto-summary-icon summary-icon" aria-hidden="true">
+                            <img src="../Resources/calendario.png" alt="">
+                        </span>
+                        <div>
+                            <span>Fecha fin estimada</span>
+                            <strong id="calculatedEndDate">-</strong>
+                            <small>No definida</small>
+                        </div>
                     </article>
+                </div>
                 </section>
 
-                <div class="tasks-header">
-                    <h3>Fechas de corte</h3>
-                    <div class="cutoff-tools">
+                <section class="modal-section">
+                    <div class="tasks-header cutoff-header">
+                        <div class="modal-section-title">
+                            <span class="modal-section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M7 3v3M17 3v3M4.5 9.5h15"></path>
+                                    <path d="M6.5 5h11A2.5 2.5 0 0 1 20 7.5v10A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-10A2.5 2.5 0 0 1 6.5 5Z"></path>
+                                </svg>
+                            </span>
+                            <h3>Fechas de corte</h3>
+                        </div>
+                        <div class="cutoff-tools">
                         <label>
                             Cantidad
                             <input type="number" id="cutoffCount" min="1" step="1" value="1">
                         </label>
                         <button type="button" id="applyCutoffCountBtn" class="secondary-button">Aplicar</button>
-                        <button type="button" id="addCutoffBtn" class="secondary-button">Agregar corte</button>
+                        <button type="button" id="addCutoffBtn" class="secondary-button modal-add-button">
+                            <span aria-hidden="true">+</span>
+                            Agregar corte
+                        </button>
                     </div>
                 </div>
 
@@ -173,10 +240,11 @@
                         <tbody id="cutoffsTableBody"></tbody>
                     </table>
                 </div>
+                </section>
 
                 <div class="modal-actions">
                     <button type="button" class="secondary-button" data-close-modal="projectModal">Cancelar</button>
-                    <button type="submit" class="primary-button">Guardar</button>
+                    <button type="submit" class="primary-button">Guardar proyecto</button>
                 </div>
             </form>
         </div>
