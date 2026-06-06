@@ -26,6 +26,21 @@ let latestIndicators = null;
 let latestBaseAnalysis = null;
 let latestAiProjectState = null;
 
+const SUMMARY_VISUAL_STATE_CLASSES = [
+    "status-ok",
+    "status-warning",
+    "status-risk",
+    "riesgo-bajo",
+    "riesgo-medio",
+    "riesgo-alto",
+    "estado-verde",
+    "estado-amarillo",
+    "estado-rojo",
+    "verde",
+    "amarillo",
+    "rojo"
+];
+
 document.addEventListener("DOMContentLoaded", () => {
     elements.analysisViewSelect.addEventListener("change", handleAnalysisViewChange);
     elements.cutoffSelect.addEventListener("change", handleCutoffChange);
@@ -78,6 +93,7 @@ function renderProjectDetail(project, indicators, baseAnalysis, curve) {
     latestBaseAnalysis = baseAnalysis;
     latestAiProjectState = null;
     elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysis, indicators);
+    refreshExecutiveSummaryVisualState(baseAnalysis, indicators);
     elements.aiVisualSummary.innerHTML = buildAiVisualSummary(baseAnalysis, indicators);
     applyAnalysisStateClass();
     elements.aiAnalysis.innerHTML = '<p class="summary-text">Seleccione Análisis IA para generar el análisis del corte actual.</p>';
@@ -157,6 +173,7 @@ async function handleCutoffChange() {
         latestIndicators = indicatorsResult.data;
         latestBaseAnalysis = baseAnalysisResult.data;
         elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysisResult.data, indicatorsResult.data);
+        refreshExecutiveSummaryVisualState(baseAnalysisResult.data, indicatorsResult.data);
         elements.aiVisualSummary.innerHTML = buildAiVisualSummary(baseAnalysisResult.data, indicatorsResult.data);
         applyAnalysisStateClass();
 
@@ -185,7 +202,7 @@ function buildExecutiveSummary(baseAnalysis, indicators = latestIndicators) {
             ${buildSummaryStatus("Costo", baseAnalysis.estadoCosto, "Situación financiera del corte actual.", "cost")}
             ${buildSummaryStatus("Riesgo", baseAnalysis.nivelRiesgo, "Nivel de exposición del proyecto.", "risk")}
             ${buildSummaryStatus("Rendimiento", performance.value, performance.description, "performance", performance.statusClass)}
-            <div class="summary-recommendations-panel ${projectState.statusClass}">
+            <div class="summary-recommendations-panel ${projectState.statusClass}" data-summary-state="${escapeAttribute(projectState.statusClass)}">
                 <p class="summary-text">${escapeHtml(baseAnalysis.resumen ?? "")}</p>
                 <h3 class="summary-subtitle">Recomendaciones</h3>
                 ${recommendations}
@@ -196,13 +213,47 @@ function buildExecutiveSummary(baseAnalysis, indicators = latestIndicators) {
 
 function buildSummaryStatus(label, value, description, icon, statusClass = getStatusClass(value)) {
     return `
-        <div class="summary-status-card ${statusClass}">
+        <div class="summary-status-card ${statusClass}" data-summary-status="${escapeAttribute(statusClass)}">
             <span class="summary-status-icon summary-icon-${escapeAttribute(icon)}" aria-hidden="true">${getSummaryIcon(label)}</span>
             <span>${escapeHtml(label)}</span>
             <strong>${escapeHtml(value ?? "")}</strong>
             <small>${escapeHtml(description ?? "")}</small>
         </div>
     `;
+}
+
+function refreshExecutiveSummaryVisualState(baseAnalysis = latestBaseAnalysis, indicators = latestIndicators) {
+    if (!elements.executiveSummary || !baseAnalysis) {
+        return;
+    }
+
+    const performance = getPerformanceMetric(indicators);
+    const projectState = getProjectState(baseAnalysis, performance.statusClass);
+    const statusClasses = [
+        getStatusClass(baseAnalysis.estadoCronograma),
+        getStatusClass(baseAnalysis.estadoCosto),
+        getStatusClass(baseAnalysis.nivelRiesgo),
+        performance.statusClass
+    ];
+
+    elements.executiveSummary
+        .querySelectorAll(".summary-status-card")
+        .forEach((card, index) => {
+            clearVisualStateClasses(card);
+            card.classList.add(statusClasses[index] ?? card.dataset.summaryStatus ?? "status-warning");
+        });
+
+    elements.executiveSummary
+        .querySelectorAll(".summary-recommendations-panel")
+        .forEach((panel) => {
+            clearVisualStateClasses(panel);
+            panel.classList.add(projectState.statusClass);
+            panel.dataset.summaryState = projectState.statusClass;
+        });
+}
+
+function clearVisualStateClasses(element) {
+    element.classList.remove(...SUMMARY_VISUAL_STATE_CLASSES);
 }
 
 function getPerformanceMetric(indicators) {
@@ -305,6 +356,7 @@ function setAnalysisView(view) {
     elements.executiveSummary.classList.toggle("hidden", isAiAnalysisVisible);
     elements.aiAnalysisPanel.classList.toggle("expanded", isAiAnalysisVisible);
     elements.aiAnalysisPanel.setAttribute("aria-hidden", String(!isAiAnalysisVisible));
+    refreshExecutiveSummaryVisualState();
     applyAnalysisStateClass();
 }
 
@@ -336,6 +388,7 @@ async function loadAiAnalysisForSelectedCutoff() {
         latestAiProjectState = extractAiProjectState(generatedAnalysis);
         if (latestBaseAnalysis) {
             elements.executiveSummary.innerHTML = buildExecutiveSummary(latestBaseAnalysis, latestIndicators);
+            refreshExecutiveSummaryVisualState(latestBaseAnalysis, latestIndicators);
         }
         elements.aiVisualSummary.innerHTML = buildAiVisualSummary();
         applyAnalysisStateClass();
@@ -911,12 +964,27 @@ function getSummaryIcon(label) {
 function getStatusClass(value) {
     const normalized = normalizeText(value);
 
-    if (normalized.includes("alto") || normalized.includes("retras") || normalized.includes("sobre")) {
+    if (
+        normalized.includes("alto") ||
+        normalized.includes("critico") ||
+        normalized.includes("retras") ||
+        normalized.includes("sobre presupuesto") ||
+        normalized.includes("sobrecosto")
+    ) {
         return "status-risk";
     }
 
-    if (normalized.includes("medio")) {
+    if (normalized.includes("medio") || normalized.includes("moderado")) {
         return "status-warning";
+    }
+
+    if (
+        normalized.includes("bajo") ||
+        normalized.includes("adelantado") ||
+        normalized.includes("bajo presupuesto") ||
+        normalized.includes("ahorro")
+    ) {
+        return "status-ok";
     }
 
     return "status-ok";
