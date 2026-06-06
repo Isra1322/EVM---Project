@@ -19,6 +19,13 @@
                 <p>Información integral del proyecto, indicadores EVM, análisis y Curva S.</p>
             </div>
         </div>
+        <div class="hero-cutoff-control">
+            <label>
+                <span class="hero-cutoff-icon" aria-hidden="true"></span>
+                <span>Fecha de corte</span>
+                <select id="cutoffSelect"></select>
+            </label>
+        </div>
     </header>
 
     <main class="detail-main">
@@ -65,12 +72,6 @@
                             <h2>Indicadores EVM</h2>
                             <span class="evm-legend">(Earned Value Management - Gestión del Valor Ganado)</span>
                         </div>
-                        <div class="indicator-controls">
-                            <label>
-                                Fecha de corte
-                                <select id="cutoffSelect"></select>
-                            </label>
-                        </div>
                     </div>
                     <div id="indicatorsGrid" class="indicator-grid"></div>
                     <div id="alertMessages" class="alert-messages"></div>
@@ -98,24 +99,31 @@
                 </div>
             </section>
 
-            <section class="detail-card detail-section">
-                <div class="detail-section-header">
-                    <h2>Resumen ejecutivo</h2>
+            <section class="detail-card detail-section summary-ai-section">
+                <div class="detail-section-header summary-ai-header">
+                    <div class="summary-title-group">
+                        <span class="summary-ai-title-icon" aria-hidden="true"></span>
+                        <div>
+                            <h2>Resumen / IA</h2>
+                            <p>Análisis inteligente del estado actual del proyecto basado en los datos y proyecciones.</p>
+                        </div>
+                    </div>
+                    <div class="summary-view-control">
+                        <label>
+                            <span class="summary-view-icon" aria-hidden="true"></span>
+                            <span>Tipo de análisis</span>
+                            <select id="analysisViewSelect">
+                                <option value="summary">Resumen ejecutivo</option>
+                                <option value="ai">Análisis IA</option>
+                            </select>
+                        </label>
+                    </div>
                 </div>
                 <div id="executiveSummary" class="executive-summary"></div>
-            </section>
-
-            <div class="ai-toggle-row">
-                <button id="toggleAiAnalysisBtn" class="primary-button ai-toggle-button" type="button">
-                    Mostrar análisis IA
-                </button>
-            </div>
-
-            <section id="aiAnalysisPanel" class="detail-card detail-section ai-collapsible-section" aria-hidden="true">
-                <div class="detail-section-header">
-                    <h2>Análisis IA</h2>
+                <div id="aiAnalysisPanel" class="ai-collapsible-section" aria-hidden="true">
+                    <div id="aiVisualSummary" class="ai-visual-summary"></div>
+                    <div id="aiAnalysis" class="ai-report"></div>
                 </div>
-                <div id="aiAnalysis" class="ai-report"></div>
             </section>
         </div>
     </main>

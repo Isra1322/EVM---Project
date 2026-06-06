@@ -7,9 +7,10 @@ const elements = {
     generalData: document.getElementById("generalData"),
     indicatorsGrid: document.getElementById("indicatorsGrid"),
     executiveSummary: document.getElementById("executiveSummary"),
+    aiVisualSummary: document.getElementById("aiVisualSummary"),
     aiAnalysis: document.getElementById("aiAnalysis"),
     aiAnalysisPanel: document.getElementById("aiAnalysisPanel"),
-    toggleAiAnalysisBtn: document.getElementById("toggleAiAnalysisBtn"),
+    analysisViewSelect: document.getElementById("analysisViewSelect"),
     chartBacValue: document.getElementById("chartBacValue"),
     tasksBody: document.getElementById("tasksBody"),
     cutoffSelect: document.getElementById("cutoffSelect"),
@@ -20,9 +21,13 @@ const elements = {
 let chart = null;
 let isAiAnalysisVisible = false;
 let currentProjectId = null;
+let loadedAiCorteId = null;
+let latestIndicators = null;
+let latestBaseAnalysis = null;
+let latestAiProjectState = null;
 
 document.addEventListener("DOMContentLoaded", () => {
-    elements.toggleAiAnalysisBtn.addEventListener("click", toggleAiAnalysis);
+    elements.analysisViewSelect.addEventListener("change", handleAnalysisViewChange);
     elements.cutoffSelect.addEventListener("change", handleCutoffChange);
     loadProjectDetail();
 });
@@ -69,9 +74,16 @@ function renderProjectDetail(project, indicators, baseAnalysis, curve) {
 
     renderCutoffOptions(project.cortes ?? [], indicators.corteId);
     renderIndicators(indicators);
-    elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysis);
-    elements.aiAnalysis.innerHTML = '<p class="summary-text">Seleccione Mostrar analisis IA para generar el analisis del corte actual.</p>';
+    latestIndicators = indicators;
+    latestBaseAnalysis = baseAnalysis;
+    latestAiProjectState = null;
+    elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysis, indicators);
+    elements.aiVisualSummary.innerHTML = buildAiVisualSummary(baseAnalysis, indicators);
+    applyAnalysisStateClass();
+    elements.aiAnalysis.innerHTML = '<p class="summary-text">Seleccione Análisis IA para generar el análisis del corte actual.</p>';
     elements.tasksBody.innerHTML = buildReadOnlyTasks(project.tareas ?? []);
+    elements.analysisViewSelect.value = "summary";
+    setAnalysisView("summary");
 
     renderCurveSChart(curve);
 
@@ -102,8 +114,8 @@ function renderIndicators(indicators) {
 
     elements.indicatorsGrid.innerHTML = [
         buildIndicatorCard("BAC", bac, "money", "(Presupuesto total)"),
-        buildIndicatorCard("PV", pv, "money", `(→ ${pvPercent}% planificado)`),
-        buildIndicatorCard("EV", ev, "money", `(→ ${evPercent}% completado)`),
+        buildIndicatorCard("PV", pv, "money", `(${pvPercent}% planificado)`),
+        buildIndicatorCard("EV", ev, "money", `(${evPercent}% completado)`),
         buildIndicatorCard("AC", ac, "money", "(AC actual)"),
         buildIndicatorCard("SPI", spi, "ratio", spiText),
         buildIndicatorCard("CPI", cpi, "ratio", cpiText),
@@ -134,83 +146,201 @@ async function handleCutoffChange() {
 
     try {
         const encodedCorteId = encodeURIComponent(corteId);
-        const requests = [
+        loadedAiCorteId = null;
+        latestAiProjectState = null;
+        const [indicatorsResult, baseAnalysisResult] = await Promise.all([
             requestJson(`${API_URL}/${currentProjectId}/indicadores?corteId=${encodedCorteId}`),
             requestJson(`${API_URL}/${currentProjectId}/analisis?corteId=${encodedCorteId}`)
-        ];
-
-        if (isAiAnalysisVisible) {
-            elements.aiAnalysis.innerHTML = '<p class="summary-text">Generando analisis IA...</p>';
-            requests.push(requestJson(buildAiAnalysisUrl(currentProjectId, corteId)));
-        }
-
-        const [indicatorsResult, baseAnalysisResult, aiResult] = await Promise.all(requests);
+        ]);
 
         renderIndicators(indicatorsResult.data);
-        elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysisResult.data);
+        latestIndicators = indicatorsResult.data;
+        latestBaseAnalysis = baseAnalysisResult.data;
+        elements.executiveSummary.innerHTML = buildExecutiveSummary(baseAnalysisResult.data, indicatorsResult.data);
+        elements.aiVisualSummary.innerHTML = buildAiVisualSummary(baseAnalysisResult.data, indicatorsResult.data);
+        applyAnalysisStateClass();
 
         if (isAiAnalysisVisible) {
-            elements.aiAnalysis.innerHTML = buildAiAnalysis(aiResult.data?.analisisGenerado);
+            await loadAiAnalysisForSelectedCutoff();
         }
     } catch (error) {
         showError(error.message);
     }
 }
 
-function buildExecutiveSummary(baseAnalysis) {
+function buildExecutiveSummary(baseAnalysis, indicators = latestIndicators) {
     if (!baseAnalysis) {
         return '<p class="summary-text">No se recibio resumen ejecutivo.</p>';
     }
 
+    const performance = getPerformanceMetric(indicators);
+    const projectState = getProjectState(baseAnalysis, performance.statusClass);
     const recommendations = baseAnalysis.recomendaciones?.length
         ? `<ul class="summary-recommendations">${baseAnalysis.recomendaciones.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
         : '<p class="summary-text">No hay recomendaciones registradas.</p>';
 
     return `
-        <div class="summary-status-grid">
-            ${buildSummaryStatus("Cronograma", baseAnalysis.estadoCronograma)}
-            ${buildSummaryStatus("Costo", baseAnalysis.estadoCosto)}
-            ${buildSummaryStatus("Riesgo", baseAnalysis.nivelRiesgo)}
+        <div class="summary-layout">
+            ${buildSummaryStatus("Cronograma", baseAnalysis.estadoCronograma, "Estado del avance frente al plan.", "calendar")}
+            ${buildSummaryStatus("Costo", baseAnalysis.estadoCosto, "Situación financiera del corte actual.", "cost")}
+            ${buildSummaryStatus("Riesgo", baseAnalysis.nivelRiesgo, "Nivel de exposición del proyecto.", "risk")}
+            ${buildSummaryStatus("Rendimiento", performance.value, performance.description, "performance", performance.statusClass)}
+            <div class="summary-recommendations-panel ${projectState.statusClass}">
+                <p class="summary-text">${escapeHtml(baseAnalysis.resumen ?? "")}</p>
+                <h3 class="summary-subtitle">Recomendaciones</h3>
+                ${recommendations}
+            </div>
         </div>
-        <p class="summary-text">${escapeHtml(baseAnalysis.resumen ?? "")}</p>
-        <h3 class="summary-subtitle">Recomendaciones</h3>
-        ${recommendations}
     `;
 }
 
-function buildSummaryStatus(label, value) {
+function buildSummaryStatus(label, value, description, icon, statusClass = getStatusClass(value)) {
     return `
-        <div class="summary-status-card ${getStatusClass(value)}">
-            <span class="summary-status-icon" aria-hidden="true">${getSummaryIcon(label)}</span>
+        <div class="summary-status-card ${statusClass}">
+            <span class="summary-status-icon summary-icon-${escapeAttribute(icon)}" aria-hidden="true">${getSummaryIcon(label)}</span>
             <span>${escapeHtml(label)}</span>
             <strong>${escapeHtml(value ?? "")}</strong>
+            <small>${escapeHtml(description ?? "")}</small>
         </div>
     `;
 }
 
-async function toggleAiAnalysis() {
-    isAiAnalysisVisible = !isAiAnalysisVisible;
-    elements.aiAnalysisPanel.classList.toggle("expanded", isAiAnalysisVisible);
-    elements.aiAnalysisPanel.setAttribute("aria-hidden", String(!isAiAnalysisVisible));
-    if (isAiAnalysisVisible) {
+function getPerformanceMetric(indicators) {
+    const tcpi = Number(indicators?.tcpi);
+    const cpi = Number(indicators?.cpi);
+    const useTcpi = Number.isFinite(tcpi) && tcpi > 0;
+    const metricName = useTcpi ? "TCPI" : "CPI";
+    const value = useTcpi ? tcpi : cpi;
+    const formattedValue = Number.isFinite(value) ? `${metricName} ${formatStandardNumber(value)}` : "Sin datos";
+
+    return {
+        value: formattedValue,
+        description: useTcpi ? "Rendimiento necesario para finalizar." : "Eficiencia de costo del corte actual.",
+        statusClass: getPerformanceStatusClass(value)
+    };
+}
+
+function getPerformanceStatusClass(value) {
+    if (!Number.isFinite(value)) {
+        return "status-warning";
+    }
+
+    if (value < 0.95) {
+        return "status-risk";
+    }
+
+    if (value <= 1.04) {
+        return "status-warning";
+    }
+
+    return "status-ok";
+}
+
+function buildAiVisualSummary(baseAnalysis = latestBaseAnalysis, indicators = latestIndicators) {
+    if (!baseAnalysis) {
+        return '<p class="summary-text">No se recibio resumen ejecutivo.</p>';
+    }
+
+    const performance = getPerformanceMetric(indicators);
+    const projectState = getProjectState(baseAnalysis, performance.statusClass);
+
+    return `
+        <div class="ai-visual-heading ${projectState.statusClass}">
+            <span>Estado del proyecto</span>
+            <strong class="${projectState.statusClass}">${escapeHtml(projectState.value)}</strong>
+        </div>
+        <div class="ai-visual-card-grid">
+            ${buildAiVisualCard("Cronograma", baseAnalysis.estadoCronograma, "calendar", getStatusClass(baseAnalysis.estadoCronograma))}
+            ${buildAiVisualCard("Costos", baseAnalysis.estadoCosto, "cost", getStatusClass(baseAnalysis.estadoCosto))}
+            ${buildAiVisualCard("Riesgo", baseAnalysis.nivelRiesgo, "risk", getStatusClass(baseAnalysis.nivelRiesgo))}
+            ${buildAiVisualCard("Rendimiento", performance.value, "performance", performance.statusClass)}
+        </div>
+    `;
+}
+
+function buildAiVisualCard(label, value, icon, statusClass) {
+    return `
+        <article class="ai-visual-card ${statusClass}">
+            <span class="ai-visual-card-icon summary-icon-${escapeAttribute(icon)}" aria-hidden="true">${getSummaryIcon(label === "Costos" ? "Costo" : label)}</span>
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(value ?? "")}</strong>
+        </article>
+    `;
+}
+
+function getProjectState(baseAnalysis, performanceStatusClass) {
+    if (latestAiProjectState) {
+        return latestAiProjectState;
+    }
+
+    const statusClasses = [
+        getStatusClass(baseAnalysis.estadoCronograma),
+        getStatusClass(baseAnalysis.estadoCosto),
+        getStatusClass(baseAnalysis.nivelRiesgo),
+        performanceStatusClass
+    ];
+
+    if (statusClasses.includes("status-risk")) {
+        return { value: "Crítico", statusClass: "status-risk" };
+    }
+
+    if (statusClasses.includes("status-warning")) {
+        return { value: "En atención", statusClass: "status-warning" };
+    }
+
+    return { value: "Estable", statusClass: "status-ok" };
+}
+
+async function handleAnalysisViewChange() {
+    const selectedView = elements.analysisViewSelect.value;
+    setAnalysisView(selectedView);
+
+    if (selectedView === "ai" && loadedAiCorteId !== elements.cutoffSelect.value) {
         await loadAiAnalysisForSelectedCutoff();
     }
-    elements.toggleAiAnalysisBtn.textContent = isAiAnalysisVisible ? "Ocultar análisis IA" : "Mostrar análisis IA";
+}
+
+function setAnalysisView(view) {
+    isAiAnalysisVisible = view === "ai";
+    elements.executiveSummary.classList.toggle("hidden", isAiAnalysisVisible);
+    elements.aiAnalysisPanel.classList.toggle("expanded", isAiAnalysisVisible);
+    elements.aiAnalysisPanel.setAttribute("aria-hidden", String(!isAiAnalysisVisible));
+    applyAnalysisStateClass();
+}
+
+function applyAnalysisStateClass() {
+    elements.aiAnalysisPanel.classList.remove("status-ok", "status-warning", "status-risk");
+
+    if (!latestBaseAnalysis) {
+        return;
+    }
+
+    const performance = getPerformanceMetric(latestIndicators);
+    const projectState = getProjectState(latestBaseAnalysis, performance.statusClass);
+    elements.aiAnalysisPanel.classList.add(projectState.statusClass);
 }
 
 async function loadAiAnalysisForSelectedCutoff() {
     const corteId = elements.cutoffSelect.value;
 
     if (!currentProjectId || !corteId) {
-        elements.aiAnalysis.innerHTML = '<p class="summary-text">No hay fecha de corte seleccionada para generar el analisis IA.</p>';
+        elements.aiAnalysis.innerHTML = '<p class="summary-text">No hay fecha de corte seleccionada para generar el análisis IA.</p>';
         return;
     }
 
-    elements.aiAnalysis.innerHTML = '<p class="summary-text">Generando analisis IA...</p>';
+    elements.aiAnalysis.innerHTML = '<p class="summary-text">Generando análisis IA...</p>';
 
     try {
         const aiResult = await requestJson(buildAiAnalysisUrl(currentProjectId, corteId));
-        elements.aiAnalysis.innerHTML = buildAiAnalysis(aiResult.data?.analisisGenerado);
+        const generatedAnalysis = aiResult.data?.analisisGenerado;
+        latestAiProjectState = extractAiProjectState(generatedAnalysis);
+        if (latestBaseAnalysis) {
+            elements.executiveSummary.innerHTML = buildExecutiveSummary(latestBaseAnalysis, latestIndicators);
+        }
+        elements.aiVisualSummary.innerHTML = buildAiVisualSummary();
+        applyAnalysisStateClass();
+        elements.aiAnalysis.innerHTML = buildAiAnalysis(generatedAnalysis);
+        loadedAiCorteId = corteId;
     } catch (error) {
         elements.aiAnalysis.innerHTML = `<p class="summary-text">${escapeHtml(error.message)}</p>`;
     }
@@ -242,7 +372,10 @@ function renderCurveSChart(curve) {
         options: {
             layout: {
                 padding: {
-                    left: 20
+                    left: 12,
+                    right: 10,
+                    top: 8,
+                    bottom: 4
                 }
             },
             responsive: true,
@@ -264,14 +397,36 @@ function renderCurveSChart(curve) {
             },
             scales: {
                 x: {
+                    grid: {
+                        color: "rgba(148, 163, 184, 0.16)"
+                    },
+                    border: {
+                        color: "rgba(148, 163, 184, 0.22)"
+                    },
                     ticks: {
                         autoSkip: true,
                         maxTicksLimit: 8,
-                        maxRotation: 0
+                        maxRotation: 0,
+                        color: "#dbeafe",
+                        font: {
+                            size: 11
+                        }
                     }
                 },
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    grid: {
+                        color: "rgba(148, 163, 184, 0.16)"
+                    },
+                    border: {
+                        color: "rgba(148, 163, 184, 0.22)"
+                    },
+                    ticks: {
+                        color: "#dbeafe",
+                        font: {
+                            size: 11
+                        }
+                    }
                 }
             }
         }
@@ -295,14 +450,14 @@ function buildCutoffAnnotations(cortes) {
             type: "line",
             xMin: formatDate(corte.fechaCorte),
             xMax: formatDate(corte.fechaCorte),
-            borderColor: "red",
+            borderColor: "#fb253f",
             borderWidth: 2,
             borderDash: [5, 5],
             label: {
                 display: true,
                 content: `Corte ${index + 1}`,
                 position: "start",
-                backgroundColor: "rgba(255, 99, 132, 0.8)",
+                backgroundColor: "#fb253f",
                 color: "white",
                 font: {
                     weight: "bold"
@@ -327,13 +482,26 @@ function buildDataset(label, data, color, spanGaps = false) {
 }
 
 function buildDetailItem(label, value, type) {
+    const secondaryText = getDetailSecondaryText(type, label);
+
     return `
         <div class="detail-item detail-${type}">
             <span class="detail-item-icon" aria-hidden="true">${getDetailIcon(type, label)}</span>
             <span>${escapeHtml(label)}</span>
             <strong>${escapeHtml(value)}</strong>
+            <small>${escapeHtml(secondaryText)}</small>
         </div>
     `;
+}
+
+function getDetailSecondaryText(type, label) {
+    if (type === "time") return "Escala del cronograma";
+    if (type === "manager") return "Responsable principal";
+    if (type === "assistant") return "Apoyo del proyecto";
+    if (type === "date" && label === "Fecha inicio") return "Inicio planificado";
+    if (type === "date" && label === "Fecha fin") return "Finalización prevista";
+    if (type === "bac") return "Presupuesto aprobado";
+    return "";
 }
 
 function getIndicatorColorClass(label, value) {
@@ -356,12 +524,28 @@ function buildIndicatorCard(label, value, type, text = "") {
     const textHtml = text ? `<div class="indicator-desc ${colorClass}">${text}</div>` : "";
     return `
         <div class="indicator-card ${colorClass}">
-            <span class="indicator-dot" aria-hidden="true"></span>
+            <span class="indicator-icon indicator-${label.toLowerCase()}" aria-hidden="true">${getIndicatorIcon(label)}</span>
             <span>${escapeHtml(label)}</span>
             <strong>${formatIndicatorValue(value, type)}</strong>
             ${textHtml}
         </div>
     `;
+}
+
+function getIndicatorIcon(label) {
+    const icons = {
+        BAC: "$",
+        PV: "P",
+        EV: "E",
+        AC: "A",
+        SPI: "S",
+        CPI: "C",
+        EAC: "E",
+        VAC: "V",
+        TCPI: "T"
+    };
+
+    return icons[label] ?? "i";
 }
 
 function updateStatusAlertsAndBadge(cpi, spi) {
@@ -433,15 +617,43 @@ function sortTasksByOrder(tasks) {
 }
 
 function buildAiAnalysis(markdownText) {
-    const cleanText = cleanMarkdown(markdownText ?? "No se recibio analisis generado.");
+    const cleanText = cleanMarkdown(markdownText ?? "No se recibió análisis generado.");
     const sections = splitAnalysisSections(cleanText);
 
     return sections.map((section) => `
         <section class="ai-report-section">
-            <h3>${escapeHtml(section.title)}</h3>
+            <h3><span aria-hidden="true">${getAiSectionIcon(section.title)}</span>${escapeHtml(section.title)}</h3>
             ${renderAnalysisBlocks(section.blocks, section.title)}
         </section>
     `).join("");
+}
+
+function extractAiProjectState(markdownText) {
+    const cleanText = cleanMarkdown(markdownText ?? "");
+    const stateMatch = cleanText.match(/estado\s+del\s+proyecto\s*:?\s*(verde|amarillo|rojo)/i);
+
+    if (!stateMatch) {
+        return null;
+    }
+
+    const state = normalizeText(stateMatch[1]);
+    const states = {
+        verde: { value: "Riesgo Bajo", statusClass: "status-ok" },
+        amarillo: { value: "Riesgo Medio", statusClass: "status-warning" },
+        rojo: { value: "Crítico", statusClass: "status-risk" }
+    };
+
+    return states[state] ?? null;
+}
+
+function getAiSectionIcon(title) {
+    const normalized = normalizeText(title);
+
+    if (normalized.includes("diagnostico")) return "D";
+    if (normalized.includes("interpretacion")) return "I";
+    if (normalized.includes("desviacion") || normalized.includes("riesgo")) return "!";
+    if (normalized.includes("recomendacion") || normalized.includes("corregir")) return "R";
+    return "A";
 }
 
 function renderAnalysisBlocks(blocks, sectionTitle) {
@@ -502,7 +714,7 @@ function splitAnalysisSections(text) {
         .map((line) => line.trim())
         .filter(Boolean);
     const sections = [];
-    let current = { title: "Diagnostico general", blocks: [] };
+    let current = { title: "Diagnóstico general", blocks: [] };
 
     lines.forEach((line) => {
         const sectionTitle = getAnalysisTitle(line);
@@ -528,7 +740,7 @@ function splitAnalysisSections(text) {
         sections.push(current);
     }
 
-    return sections.length ? sections : [{ title: "Diagnostico general", blocks: [buildAnalysisBlock(text)] }];
+    return sections.length ? sections : [{ title: "Diagnóstico general", blocks: [buildAnalysisBlock(text)] }];
 }
 
 function getAnalysisTitle(line) {
@@ -536,14 +748,14 @@ function getAnalysisTitle(line) {
     const titles = [
         "Nombre del Proyecto",
         "Nombre del proyecto",
-        "Diagnostico general",
-        "Diagnostico",
-        "Interpretacion",
-        "Interpretacion SPI/CPI",
-        "Interpretacion de SPI y CPI",
+        "Diagnóstico general",
+        "Diagnóstico",
+        "Interpretación",
+        "Interpretación SPI/CPI",
+        "Interpretación de SPI y CPI",
         "Riesgos principales",
-        "Que corregir",
-        "Como corregirlo",
+        "Qué corregir",
+        "Cómo corregirlo",
         "Recomendaciones"
     ];
     const exactTitle = titles.find((title) => normalizedLine === normalizeText(title));
@@ -586,7 +798,7 @@ async function requestJson(url, options = {}) {
     const data = text ? JSON.parse(text) : null;
 
     if (!response.ok || data?.success === false) {
-        throw new Error(data?.message ?? "Ocurrio un error al comunicarse con la API.");
+        throw new Error(data?.message ?? "Ocurrió un error al comunicarse con la API.");
     }
 
     return data;
@@ -659,14 +871,14 @@ function normalizeSectionTitle(title) {
     const normalized = normalizeText(title);
     const titles = {
         "nombre del proyecto": "Nombre del Proyecto",
-        "diagnostico general": "Diagnostico general",
-        "diagnostico": "Diagnostico general",
-        "interpretacion": "Interpretacion",
-        "interpretacion spi/cpi": "Interpretacion de SPI y CPI",
-        "interpretacion de spi y cpi": "Interpretacion de SPI y CPI",
+        "diagnostico general": "Diagnóstico general",
+        "diagnostico": "Diagnóstico general",
+        "interpretacion": "Interpretación",
+        "interpretacion spi/cpi": "Interpretación de SPI y CPI",
+        "interpretacion de spi y cpi": "Interpretación de SPI y CPI",
         "riesgos principales": "Riesgos principales",
-        "que corregir": "Que corregir",
-        "como corregirlo": "Como corregirlo",
+        "que corregir": "Qué corregir",
+        "como corregirlo": "Cómo corregirlo",
         "recomendaciones": "Recomendaciones"
     };
 
@@ -689,7 +901,8 @@ function getSummaryIcon(label) {
     const icons = {
         Cronograma: "T",
         Costo: "$",
-        Riesgo: "!"
+        Riesgo: "!",
+        Rendimiento: "%"
     };
 
     return icons[label] ?? ".";
