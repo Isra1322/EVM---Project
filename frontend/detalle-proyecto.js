@@ -460,7 +460,7 @@ function renderCurveSChart(curve) {
                         autoSkip: true,
                         maxTicksLimit: 8,
                         maxRotation: 0,
-                        color: "#dbeafe",
+                        color: "#5B677A",
                         font: {
                             size: 11
                         }
@@ -475,7 +475,7 @@ function renderCurveSChart(curve) {
                         color: "rgba(148, 163, 184, 0.22)"
                     },
                     ticks: {
-                        color: "#dbeafe",
+                        color: "#5B677A",
                         font: {
                             size: 11
                         }
@@ -510,8 +510,8 @@ function buildCutoffAnnotations(cortes) {
                 display: true,
                 content: `Corte ${index + 1}`,
                 position: "start",
-                backgroundColor: "#fb253f",
-                color: "white",
+                backgroundColor: "#DC2626",
+                color: "#ffffff",
                 font: {
                     weight: "bold"
                 }
