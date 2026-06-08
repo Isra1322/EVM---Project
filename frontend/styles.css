@@ -2051,7 +2051,7 @@ textarea:focus {
     color: #374151;
 }
 
-/* Estilos para el redise�o de indicadores EVM */
+/* Estilos para el rediseño de indicadores EVM */
 .evm-indicators-container {
     display: grid;
     gap: 16px;
@@ -4111,4 +4111,63 @@ tbody tr:hover,
 .detail-hero p {
     color: rgba(255, 255, 255, 0.85) !important;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.38) !important;
+}
+
+.detail-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+}
+
+.detail-dashboard-secondary-grid {
+    margin-top: 0;
+}
+
+.chart-card,
+.evolution-chart-card {
+    height: 360px;
+    min-height: 360px;
+}
+
+.chart-card .compact-chart,
+.evolution-chart {
+    height: 252px;
+    min-height: 252px;
+    max-height: 252px;
+}
+
+.cost-distribution-card {
+    min-height: 360px;
+}
+
+.cost-distribution-chart {
+    height: 270px;
+    min-height: 270px;
+    max-height: 270px;
+}
+
+.evm-indicators-card {
+    height: auto;
+    min-height: 360px;
+}
+
+@media (max-width: 1024px) {
+    .detail-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-card,
+    .evolution-chart-card,
+    .cost-distribution-card,
+    .evm-indicators-card {
+        height: auto;
+        min-height: 0;
+    }
+
+    .chart-card .compact-chart,
+    .evolution-chart,
+    .cost-distribution-chart {
+        height: 260px;
+        min-height: 260px;
+        max-height: 260px;
+    }
 }

@@ -66,6 +66,22 @@
                     </div>
                 </section>
 
+                <section class="detail-card detail-section evolution-chart-card">
+                    <div class="detail-section-header">
+                        <h2>Evolución SPI / CPI</h2>
+                    </div>
+                    <div class="chart-legend-row" aria-hidden="true">
+                        <span><i class="legend-dot spi"></i>SPI</span>
+                        <span><i class="legend-dot cpi"></i>CPI</span>
+                        <span><i class="legend-dot reference"></i>Referencia 1</span>
+                    </div>
+                    <div class="chart-wrapper evolution-chart">
+                        <canvas id="spiCpiChart"></canvas>
+                    </div>
+                </section>
+            </div>
+
+            <div class="detail-dashboard-grid detail-dashboard-secondary-grid">
                 <section class="detail-card detail-section evm-indicators-card">
                     <div class="detail-section-header indicator-section-header">
                         <div class="indicator-title-row">
@@ -76,30 +92,16 @@
                     <div id="indicatorsGrid" class="indicator-grid"></div>
                     <div id="alertMessages" class="alert-messages"></div>
                 </section>
+
+                <section class="detail-card detail-section cost-distribution-card">
+                    <div class="detail-section-header">
+                        <h2>Distribución de costos por tarea</h2>
+                    </div>
+                    <div class="chart-wrapper cost-distribution-chart">
+                        <canvas id="costosTareaChart"></canvas>
+                    </div>
+                </section>
             </div>
-
-            <section class="detail-card detail-section evolution-chart-card">
-                <div class="detail-section-header">
-                    <h2>EvoluciÃ³n SPI / CPI</h2>
-                </div>
-                <div class="chart-legend-row" aria-hidden="true">
-                    <span><i class="legend-dot spi"></i>SPI</span>
-                    <span><i class="legend-dot cpi"></i>CPI</span>
-                    <span><i class="legend-dot reference"></i>Referencia 1</span>
-                </div>
-                <div class="chart-wrapper evolution-chart">
-                    <canvas id="spiCpiChart"></canvas>
-                </div>
-            </section>
-
-            <section class="detail-card detail-section cost-distribution-card">
-                <div class="detail-section-header">
-                    <h2>DistribuciÃ³n de costos por tarea</h2>
-                </div>
-                <div class="chart-wrapper cost-distribution-chart">
-                    <canvas id="costosTareaChart"></canvas>
-                </div>
-            </section>
 
             <section class="detail-card detail-section">
                 <div class="detail-section-header">

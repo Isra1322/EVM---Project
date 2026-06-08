@@ -102,7 +102,7 @@ function renderProjects() {
 
 function openCreateProjectModal() {
     elements.projectModalTitle.textContent = "Crear proyecto";
-    elements.projectModalSubtitle.textContent = "Completa la informacion para registrar un nuevo proyecto.";
+    elements.projectModalSubtitle.textContent = "Completa la información para registrar un nuevo proyecto.";
     elements.projectForm.reset();
     elements.projectId.value = "";
     elements.tasksTableBody.innerHTML = "";
@@ -116,7 +116,7 @@ function openCreateProjectModal() {
 
 function openEditProjectModal(project) {
     elements.projectModalTitle.textContent = "Editar proyecto";
-    elements.projectModalSubtitle.textContent = "Actualiza la informacion del proyecto existente.";
+    elements.projectModalSubtitle.textContent = "Actualiza la información del proyecto existente.";
     elements.projectForm.reset();
     elements.tasksTableBody.innerHTML = "";
     elements.cutoffsTableBody.innerHTML = "";
@@ -548,7 +548,7 @@ async function requestJson(url, options = {}) {
     const data = text ? JSON.parse(text) : null;
 
     if (!response.ok || data?.success === false) {
-        throw new Error(data?.message ?? "Ocurrio un error al comunicarse con la API.");
+        throw new Error(data?.message ?? "Ocurrió un error al comunicarse con la API.");
     }
 
     return data;
