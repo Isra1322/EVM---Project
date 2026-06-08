@@ -137,8 +137,8 @@ public class GeminiAIService : IAIService
         Interpretacion de indicadores:
         - SPI: explicar si el cronograma esta adelantado, normal o retrasado.
         - CPI: explicar si el costo esta controlado o sobre presupuesto.
-        - EAC: explicar si el costo final estimado supera o no el BAC.
-        - TCPI: explicar que tan exigente es el rendimiento necesario para terminar dentro del presupuesto.
+        - EAC: explicar si el costo final estimado optimista, realista y pesimista supera o no el BAC.
+        - TCPI: explicar que tan exigente es el rendimiento necesario para terminar dentro del BAC y del EAC.
 
         Desviaciones:
         - Indicar desviaciones positivas y negativas respecto al plan usando SV, CV y VAC cuando aplique.
@@ -168,9 +168,14 @@ public class GeminiAIService : IAIService
         CV: {indicadores.CV}
         SPI: {indicadores.SPI}
         CPI: {indicadores.CPI}
+        EAC optimista: {indicadores.EACOptimista}
+        EAC realista: {indicadores.EACRealista}
+        EAC pesimista: {indicadores.EACPesimista}
         EAC: {indicadores.EAC}
         ETC: {indicadores.ETC}
         VAC: {indicadores.VAC}
+        TCPI(BAC): {indicadores.TCPIBAC}
+        TCPI(EAC): {indicadores.TCPIEAC}
         TCPI: {indicadores.TCPI}
 
         Analisis base:

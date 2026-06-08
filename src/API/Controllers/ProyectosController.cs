@@ -113,6 +113,42 @@ public class ProyectosController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("{id:guid}/evolucion-spi-cpi")]
+    public async Task<IActionResult> GetEvolucionSpiCpi(Guid id)
+    {
+        var result = await _proyectoService.GetEvolucionSpiCpiAsync(id);
+
+        if (!result.Success && result.Message == "Proyecto no encontrado")
+        {
+            return NotFound(result);
+        }
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id:guid}/costos-por-tarea")]
+    public async Task<IActionResult> GetCostosPorTarea(Guid id)
+    {
+        var result = await _proyectoService.GetCostosPorTareaAsync(id);
+
+        if (!result.Success && result.Message == "Proyecto no encontrado")
+        {
+            return NotFound(result);
+        }
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create(ProyectoCreateDto dto)
     {

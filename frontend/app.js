@@ -356,9 +356,10 @@ function getLastCutoff(cortes) {
 function calculateProjectSummary(tareas = getTaskPayload()) {
     const fechaInicio = document.getElementById("fechaInicio").value;
     const unidadTiempo = document.getElementById("unidadTiempo").value;
-    const duracionTotal = tareas.reduce((total, tarea) => total + sanitizeNumber(tarea.duracionDias), 0);
+    const duracionTotalDias = calculateCriticalPathDurationDays(tareas, unidadTiempo);
+    const duracionTotal = duracionTotalDias === null ? null : convertDaysToUnit(duracionTotalDias, unidadTiempo);
     const presupuestoBAC = tareas.reduce((total, tarea) => total + sanitizeNumber(tarea.costo), 0);
-    const fechaFin = calculateEndDate(fechaInicio, duracionTotal, unidadTiempo);
+    const fechaFin = calculateEndDateFromDays(fechaInicio, duracionTotalDias);
 
     return {
         presupuestoBAC,
@@ -381,33 +382,148 @@ function sanitizeNumber(value) {
     return Number.isFinite(number) ? number : 0;
 }
 
-function calculateEndDate(fechaInicio, duracionTotal, unidadTiempo) {
-    if (!fechaInicio || duracionTotal <= 0) {
+function calculateCriticalPathDurationDays(tareas, unidadTiempo) {
+    const earlyFinishByTask = new Array(tareas.length);
+    const visiting = new Set();
+    const visited = new Set();
+
+    function calculateTaskFinish(index) {
+        if (index < 0 || index >= tareas.length) {
+            return null;
+        }
+
+        if (visited.has(index)) {
+            return earlyFinishByTask[index];
+        }
+
+        if (visiting.has(index)) {
+            return null;
+        }
+
+        visiting.add(index);
+
+        const predecessors = parsePredecessors(tareas[index].predecesoras, tareas.length);
+
+        if (predecessors === null) {
+            return null;
+        }
+
+        let earlyStart = 0;
+
+        for (const predecessorNumber of predecessors) {
+            const predecessorFinish = calculateTaskFinish(predecessorNumber - 1);
+
+            if (predecessorFinish === null) {
+                return null;
+            }
+
+            earlyStart = Math.max(earlyStart, predecessorFinish);
+        }
+
+        visiting.delete(index);
+        visited.add(index);
+
+        const durationDays = convertTaskDurationToDays(tareas[index].duracionDias, unidadTiempo);
+        earlyFinishByTask[index] = earlyStart + durationDays;
+
+        return earlyFinishByTask[index];
+    }
+
+    let projectFinish = 0;
+
+    for (let index = 0; index < tareas.length; index++) {
+        const taskFinish = calculateTaskFinish(index);
+
+        if (taskFinish === null) {
+            return null;
+        }
+
+        projectFinish = Math.max(projectFinish, taskFinish);
+    }
+
+    return projectFinish;
+}
+
+function parsePredecessors(value, totalTasks) {
+    if (!value) {
+        return [];
+    }
+
+    const predecessors = [];
+    const parts = String(value)
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    for (const part of parts) {
+        const predecessor = Number(part);
+
+        if (!Number.isInteger(predecessor) || predecessor < 1 || predecessor > totalTasks) {
+            return null;
+        }
+
+        if (!predecessors.includes(predecessor)) {
+            predecessors.push(predecessor);
+        }
+    }
+
+    return predecessors;
+}
+
+function convertTaskDurationToDays(duration, unidadTiempo) {
+    const sanitizedDuration = sanitizeNumber(duration);
+
+    if (unidadTiempo === "Semanas") {
+        return sanitizedDuration * 7;
+    }
+
+    if (unidadTiempo === "Meses") {
+        return sanitizedDuration * 30;
+    }
+
+    return sanitizedDuration;
+}
+
+function convertDaysToUnit(days, unidadTiempo) {
+    if (unidadTiempo === "Semanas") {
+        return days / 7;
+    }
+
+    if (unidadTiempo === "Meses") {
+        return days / 30;
+    }
+
+    return days;
+}
+
+function calculateEndDateFromDays(fechaInicio, duracionTotalDias) {
+    if (!fechaInicio || duracionTotalDias === null || duracionTotalDias <= 0) {
         return "";
     }
 
     const [year, month, day] = fechaInicio.split("-").map(Number);
     const date = new Date(year, month - 1, day);
-
-    if (unidadTiempo === "Semanas") {
-        date.setDate(date.getDate() + (duracionTotal * 7));
-    } else if (unidadTiempo === "Meses") {
-        date.setMonth(date.getMonth() + duracionTotal);
-    } else {
-        date.setDate(date.getDate() + duracionTotal);
-    }
+    date.setDate(date.getDate() + duracionTotalDias);
 
     return toInputDateFromLocalDate(date);
 }
 
 function formatDuration(duracionTotal, unidadTiempo) {
+    if (duracionTotal === null) {
+        return "-";
+    }
+
     const labels = {
         Dias: duracionTotal === 1 ? "d\u00eda" : "d\u00edas",
         Semanas: duracionTotal === 1 ? "semana" : "semanas",
         Meses: duracionTotal === 1 ? "mes" : "meses"
     };
 
-    return `${duracionTotal} ${labels[unidadTiempo] ?? labels.Dias}`;
+    return `${formatSummaryNumber(duracionTotal)} ${labels[unidadTiempo] ?? labels.Dias}`;
+}
+
+function formatSummaryNumber(value) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
 async function deleteProject(project) {

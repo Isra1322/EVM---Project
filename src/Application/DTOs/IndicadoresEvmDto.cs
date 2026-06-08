@@ -19,7 +19,12 @@ public class IndicadoresEvmDto
     public decimal SPI { get; set; }
     public decimal CPI { get; set; }
     public decimal EAC { get; set; }
+    public decimal EACOptimista { get; set; }
+    public decimal EACRealista { get; set; }
+    public decimal EACPesimista { get; set; }
     public decimal ETC { get; set; }
     public decimal VAC { get; set; }
     public decimal TCPI { get; set; }
+    public decimal TCPIBAC { get; set; }
+    public decimal TCPIEAC { get; set; }
 }

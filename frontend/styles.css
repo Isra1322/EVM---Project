@@ -1632,6 +1632,18 @@ textarea:focus {
     max-height: 300px;
 }
 
+.evolution-chart {
+    height: 260px;
+    min-height: 260px;
+    max-height: 260px;
+}
+
+.cost-distribution-chart {
+    height: 260px;
+    min-height: 260px;
+    max-height: 260px;
+}
+
 .chart-wrapper canvas {
     display: block;
     width: 100% !important;
@@ -1688,6 +1700,18 @@ textarea:focus {
 }
 .legend-dot.cutoff {
     background: #dc2626;
+}
+
+.legend-dot.spi {
+    background: #2563eb;
+}
+
+.legend-dot.cpi {
+    background: #16a34a;
+}
+
+.legend-dot.reference {
+    background: #f59e0b;
 }
 
 .summary-status-grid {
@@ -3803,6 +3827,18 @@ tbody tr:hover,
 
 .legend-dot.cutoff {
     background: #dc2626 !important;
+}
+
+.legend-dot.spi {
+    background: #2563eb !important;
+}
+
+.legend-dot.cpi {
+    background: #16a34a !important;
+}
+
+.legend-dot.reference {
+    background: #f59e0b !important;
 }
 
 .chart-card,

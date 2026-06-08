@@ -83,10 +83,13 @@ public class ProyectoService : IProyectoService
         var cv = ev - ac;
         var spi = pv == 0 ? 0 : ev / pv;
         var cpi = ac == 0 ? 0 : ev / ac;
-        var eac = cpi == 0 ? 0 : bac / cpi;
-        var etc = cpi == 0 ? 0 : eac - ac;
-        var vac = bac - eac;
-        var tcpi = bac - ac == 0 ? 0 : (bac - ev) / (bac - ac);
+        var eacOptimista = ac + (bac - ev);
+        var eacRealista = cpi == 0 ? 0 : bac / cpi;
+        var eacPesimista = cpi == 0 || spi == 0 ? 0 : ac + ((bac - ev) / (cpi * spi));
+        var etc = cpi == 0 ? 0 : eacRealista - ac;
+        var vac = bac - eacRealista;
+        var tcpiBac = bac - ac == 0 ? 0 : (bac - ev) / (bac - ac);
+        var tcpiEac = eacRealista - ac == 0 ? 0 : (bac - ev) / (eacRealista - ac);
 
         var indicadores = new IndicadoresEvmDto
         {
@@ -106,10 +109,15 @@ public class ProyectoService : IProyectoService
             CV = Round(cv),
             SPI = Round(spi),
             CPI = Round(cpi),
-            EAC = Round(eac),
+            EAC = Round(eacRealista),
+            EACOptimista = Round(eacOptimista),
+            EACRealista = Round(eacRealista),
+            EACPesimista = Round(eacPesimista),
             ETC = Round(etc),
             VAC = Round(vac),
-            TCPI = Round(tcpi)
+            TCPI = Round(tcpiBac),
+            TCPIBAC = Round(tcpiBac),
+            TCPIEAC = Round(tcpiEac)
         };
 
         return ServiceResult<IndicadoresEvmDto>.Ok(indicadores);
@@ -274,6 +282,77 @@ public class ProyectoService : IProyectoService
         return ServiceResult<CurvaSDto>.Ok(curvaS);
     }
 
+    public async Task<ServiceResult<List<EvolucionIndicadoresDto>>> GetEvolucionSpiCpiAsync(Guid id)
+    {
+        var proyecto = await _proyectoRepository.GetByIdAsync(id);
+
+        if (proyecto is null)
+        {
+            return ServiceResult<List<EvolucionIndicadoresDto>>.Fail("Proyecto no encontrado");
+        }
+
+        var fechaFinCalculada = TryCalculateProjectEndDate(
+            proyecto.FechaInicio,
+            proyecto.UnidadTiempo,
+            proyecto.Tareas.Select(tarea => (tarea.DuracionDias, tarea.Predecesoras)),
+            out _,
+            out var fechaFinError);
+
+        if (!fechaFinCalculada && fechaFinError is not null)
+        {
+            return ServiceResult<List<EvolucionIndicadoresDto>>.Fail(fechaFinError);
+        }
+
+        var plannedCurve = BuildPlannedValueCurve(proyecto, proyecto.PresupuestoBAC);
+        var evolucion = proyecto.Cortes
+            .OrderBy(corte => corte.FechaCorte)
+            .Select(corte =>
+            {
+                var pv = GetPlannedValueAtDate(plannedCurve, corte.FechaCorte.Date);
+                var spi = pv == 0 ? 0 : corte.ValorGanadoEV / pv;
+                var cpi = corte.CostoRealAC == 0 ? 0 : corte.ValorGanadoEV / corte.CostoRealAC;
+
+                return new EvolucionIndicadoresDto
+                {
+                    CorteId = corte.Id,
+                    FechaCorte = corte.FechaCorte,
+                    SPI = Round(spi),
+                    CPI = Round(cpi),
+                    PV = Round(pv),
+                    EV = Round(corte.ValorGanadoEV),
+                    AC = Round(corte.CostoRealAC)
+                };
+            })
+            .ToList();
+
+        return ServiceResult<List<EvolucionIndicadoresDto>>.Ok(evolucion);
+    }
+
+    public async Task<ServiceResult<List<CostoPorTareaDto>>> GetCostosPorTareaAsync(Guid id)
+    {
+        var proyecto = await _proyectoRepository.GetByIdAsync(id);
+
+        if (proyecto is null)
+        {
+            return ServiceResult<List<CostoPorTareaDto>>.Fail("Proyecto no encontrado");
+        }
+
+        var bac = proyecto.PresupuestoBAC;
+        var costosPorTarea = proyecto.Tareas
+            .OrderBy(tarea => tarea.Orden == 0 ? int.MaxValue : tarea.Orden)
+            .ThenBy(tarea => tarea.Id)
+            .Select(tarea => new CostoPorTareaDto
+            {
+                TareaId = tarea.Id,
+                Nombre = tarea.Nombre,
+                Costo = Round(tarea.Costo),
+                PorcentajeDelBAC = bac == 0 ? 0 : Round(tarea.Costo / bac * 100)
+            })
+            .ToList();
+
+        return ServiceResult<List<CostoPorTareaDto>>.Ok(costosPorTarea);
+    }
+
     public async Task<ServiceResult<ProyectoResponseDto>> CreateAsync(ProyectoCreateDto dto)
     {
         var validationError = ValidateProyecto(dto);
@@ -294,6 +373,7 @@ public class ProyectoService : IProyectoService
             return ServiceResult<ProyectoResponseDto>.Fail(fechaFinError ?? "No se pudo calcular la fecha fin del proyecto");
         }
 
+        var presupuestoBacCalculado = dto.Tareas.Sum(tarea => tarea.Costo);
         var proyecto = new Proyecto
         {
             Id = proyectoId,
@@ -306,7 +386,7 @@ public class ProyectoService : IProyectoService
             FechaCorte = GetCompatibilityFechaCorte(dto.Cortes, dto.FechaCorte),
             ValorGanadoEV = GetCompatibilityValorGanadoEV(dto.Cortes, dto.ValorGanadoEV),
             CostoRealAC = GetCompatibilityCostoRealAC(dto.Cortes, dto.CostoRealAC),
-            PresupuestoBAC = dto.PresupuestoBAC,
+            PresupuestoBAC = presupuestoBacCalculado,
             FechaCreacion = DateTime.UtcNow,
             Tareas = dto.Tareas.Select((tarea, index) => new TareaEDT
             {
@@ -373,7 +453,7 @@ public class ProyectoService : IProyectoService
         proyecto.FechaCorte = GetCompatibilityFechaCorte(dto.Cortes, dto.FechaCorte);
         proyecto.ValorGanadoEV = GetCompatibilityValorGanadoEV(dto.Cortes, dto.ValorGanadoEV);
         proyecto.CostoRealAC = GetCompatibilityCostoRealAC(dto.Cortes, dto.CostoRealAC);
-        proyecto.PresupuestoBAC = dto.PresupuestoBAC;
+        proyecto.PresupuestoBAC = dto.Tareas.Sum(tarea => tarea.Costo);
 
         UpdateTareas(proyecto, dto.Tareas);
         UpdateCortes(proyecto, dto.Cortes);

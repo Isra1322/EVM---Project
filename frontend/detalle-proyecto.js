@@ -12,6 +12,8 @@ const elements = {
     aiAnalysisPanel: document.getElementById("aiAnalysisPanel"),
     analysisViewSelect: document.getElementById("analysisViewSelect"),
     chartBacValue: document.getElementById("chartBacValue"),
+    spiCpiChart: document.getElementById("spiCpiChart"),
+    costosTareaChart: document.getElementById("costosTareaChart"),
     tasksBody: document.getElementById("tasksBody"),
     cutoffSelect: document.getElementById("cutoffSelect"),
     statusBadge: document.getElementById("statusBadge"),
@@ -19,6 +21,8 @@ const elements = {
 };
 
 let chart = null;
+let spiCpiChart = null;
+let costosTareaChart = null;
 let isAiAnalysisVisible = false;
 let currentProjectId = null;
 let loadedAiCorteId = null;
@@ -58,25 +62,29 @@ async function loadProjectDetail() {
     currentProjectId = projectId;
 
     try {
-        const [projectResult, indicatorsResult, baseAnalysisResult, curveResult] = await Promise.all([
+        const [projectResult, indicatorsResult, baseAnalysisResult, curveResult, evolutionResult, taskCostsResult] = await Promise.all([
             requestJson(`${API_URL}/${projectId}`),
             requestJson(`${API_URL}/${projectId}/indicadores`),
             requestJson(`${API_URL}/${projectId}/analisis`),
-            requestJson(`${API_URL}/${projectId}/curva-s`)
+            requestJson(`${API_URL}/${projectId}/curva-s`),
+            requestJson(`${API_URL}/${projectId}/evolucion-spi-cpi`),
+            requestJson(`${API_URL}/${projectId}/costos-por-tarea`)
         ]);
 
         renderProjectDetail(
             projectResult.data,
             indicatorsResult.data,
             baseAnalysisResult.data,
-            curveResult.data
+            curveResult.data,
+            evolutionResult.data ?? [],
+            taskCostsResult.data ?? []
         );
     } catch (error) {
         showError(error.message);
     }
 }
 
-function renderProjectDetail(project, indicators, baseAnalysis, curve) {
+function renderProjectDetail(project, indicators, baseAnalysis, curve, evolution, taskCosts) {
     elements.projectTitle.textContent = project.nombre ?? "Detalle del proyecto";
     elements.generalData.innerHTML = [
         buildDetailItem("Unidad de tiempo", formatUnidadTiempo(project.unidadTiempo), "time"),
@@ -102,6 +110,8 @@ function renderProjectDetail(project, indicators, baseAnalysis, curve) {
     setAnalysisView("summary");
 
     renderCurveSChart(curve);
+    renderSpiCpiEvolutionChart(evolution);
+    renderTaskCostDistributionChart(taskCosts);
 
     elements.loadingMessage.classList.add("hidden");
     elements.projectDetailContent.classList.remove("hidden");
@@ -114,16 +124,15 @@ function renderIndicators(indicators) {
     const ac = indicators.ac;
     const spi = indicators.spi;
     const cpi = indicators.cpi;
-    const eac = indicators.eac;
+    const eacOptimista = indicators.eacOptimista ?? indicators.eac;
+    const eacRealista = indicators.eacRealista ?? indicators.eac;
+    const eacPesimista = indicators.eacPesimista ?? indicators.eac;
     const vac = indicators.vac;
-    const tcpi = indicators.tcpi;
+    const tcpiBac = indicators.tcpibac ?? indicators.tcpiBAC ?? indicators.tCPIBAC ?? indicators.tcpiBac ?? indicators.tcpi;
+    const tcpiEac = indicators.tcpieac ?? indicators.tcpiEAC ?? indicators.tCPIEAC ?? indicators.tcpiEac ?? 0;
 
     const pvPercent = bac > 0 ? ((pv / bac) * 100).toFixed(1) : 0;
     const evPercent = bac > 0 ? ((ev / bac) * 100).toFixed(1) : 0;
-    const spiPercent = Math.abs(spi - 1) * 100;
-    const cpiPercent = Math.abs(cpi - 1) * 100;
-    const tcpiPercent = Math.abs(tcpi - 1) * 100;
-
     let spiText = spi > 1 ? `(Adelantado)` : spi === 1 ? `(Justo a tiempo)` : `(Atrasado)`;
     let cpiText = cpi > 1 ? `(Bajo presupuesto)` : cpi === 1 ? `(Justo en presupuesto)` : `(Sobrecosto)`;
     let vacText = vac > 0 ? `(Ahorro estimado)` : vac === 0 ? `(Proyectado justo)` : `(Pérdida proyectada)`;
@@ -135,9 +144,12 @@ function renderIndicators(indicators) {
         buildIndicatorCard("AC", ac, "money", "(AC actual)"),
         buildIndicatorCard("SPI", spi, "ratio", spiText),
         buildIndicatorCard("CPI", cpi, "ratio", cpiText),
-        buildIndicatorCard("EAC", eac, "money", "(Costo estimado al terminar)"),
+        buildIndicatorCard("EAC optimista", eacOptimista, "money", "(AC + trabajo restante)"),
+        buildIndicatorCard("EAC realista", eacRealista, "money", "(EAC actual)"),
+        buildIndicatorCard("EAC pesimista", eacPesimista, "money", "(Ajustado por CPI y SPI)"),
         buildIndicatorCard("VAC", vac, "money", vacText),
-        buildIndicatorCard("TCPI", tcpi, "ratio", "(Rendimiento necesario)")
+        buildIndicatorCard("TCPI(BAC)", tcpiBac, "ratio", "(Para cumplir BAC)"),
+        buildIndicatorCard("TCPI(EAC)", tcpiEac, "ratio", "(Para cumplir EAC)")
     ].join("");
 
     updateStatusAlertsAndBadge(indicators.cpi, indicators.spi);
@@ -257,10 +269,10 @@ function clearVisualStateClasses(element) {
 }
 
 function getPerformanceMetric(indicators) {
-    const tcpi = Number(indicators?.tcpi);
+    const tcpi = Number(indicators?.tcpibac ?? indicators?.tcpiBAC ?? indicators?.tCPIBAC ?? indicators?.tcpiBac ?? indicators?.tcpi);
     const cpi = Number(indicators?.cpi);
     const useTcpi = Number.isFinite(tcpi) && tcpi > 0;
-    const metricName = useTcpi ? "TCPI" : "CPI";
+    const metricName = useTcpi ? "TCPI(BAC)" : "CPI";
     const value = useTcpi ? tcpi : cpi;
     const formattedValue = Number.isFinite(value) ? `${metricName} ${formatStandardNumber(value)}` : "Sin datos";
 
@@ -486,6 +498,228 @@ function renderCurveSChart(curve) {
     });
 }
 
+function renderSpiCpiEvolutionChart(evolution) {
+    const points = [...(evolution ?? [])].sort((left, right) =>
+        new Date(left.fechaCorte) - new Date(right.fechaCorte)
+    );
+    const hasSingleCutoff = points.length <= 1;
+    const labels = hasSingleCutoff
+        ? ["SPI", "CPI"]
+        : points.map((point) => formatDate(point.fechaCorte));
+    const datasets = hasSingleCutoff
+        ? [{
+            label: "Indicadores",
+            data: [
+                Number(points[0]?.spi ?? 0),
+                Number(points[0]?.cpi ?? 0)
+            ],
+            backgroundColor: ["#2563eb", "#16a34a"],
+            borderColor: ["#2563eb", "#16a34a"],
+            borderWidth: 1,
+            borderRadius: 6,
+            maxBarThickness: 64
+        }]
+        : [
+            buildDataset("SPI", points.map((point) => point.spi), "#2563eb"),
+            buildDataset("CPI", points.map((point) => point.cpi), "#16a34a")
+        ];
+
+    if (spiCpiChart) {
+        spiCpiChart.destroy();
+    }
+
+    spiCpiChart = new Chart(elements.spiCpiChart, {
+        type: hasSingleCutoff ? "bar" : "line",
+        data: {
+            labels,
+            datasets
+        },
+        options: {
+            layout: {
+                padding: {
+                    left: 8,
+                    right: 10,
+                    top: 8,
+                    bottom: 2
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: "index",
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: false
+                },
+                annotation: {
+                    annotations: {
+                        referenceOne: {
+                            type: "line",
+                            yMin: 1,
+                            yMax: 1,
+                            borderColor: "#f59e0b",
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                display: true,
+                                content: "1.00",
+                                position: "end",
+                                backgroundColor: "#f59e0b",
+                                color: "#111827",
+                                font: {
+                                    weight: "bold"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: "rgba(148, 163, 184, 0.16)"
+                    },
+                    border: {
+                        color: "rgba(148, 163, 184, 0.22)"
+                    },
+                    ticks: {
+                        color: "#5B677A",
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    suggestedMax: 1.5,
+                    grid: {
+                        color: "rgba(148, 163, 184, 0.16)"
+                    },
+                    border: {
+                        color: "rgba(148, 163, 184, 0.22)"
+                    },
+                    ticks: {
+                        color: "#5B677A",
+                        font: {
+                            size: 11
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderTaskCostDistributionChart(taskCosts) {
+    const tasks = [...(taskCosts ?? [])];
+    const useHorizontalBars = tasks.length > 6;
+    const labels = tasks.map((task) => task.nombre);
+    const costs = tasks.map((task) => Number(task.costo ?? 0));
+    const percentages = tasks.map((task) => Number(task.porcentajeDelBAC ?? 0));
+    const colors = [
+        "#2563eb",
+        "#16a34a",
+        "#f59e0b",
+        "#8b5cf6",
+        "#dc2626",
+        "#0891b2",
+        "#65a30d",
+        "#be185d",
+        "#4f46e5",
+        "#0f766e"
+    ];
+
+    if (costosTareaChart) {
+        costosTareaChart.destroy();
+    }
+
+    costosTareaChart = new Chart(elements.costosTareaChart, {
+        type: useHorizontalBars ? "bar" : "doughnut",
+        data: {
+            labels,
+            datasets: [{
+                label: "Costo",
+                data: costs,
+                backgroundColor: labels.map((_, index) => colors[index % colors.length]),
+                borderColor: "#ffffff",
+                borderWidth: useHorizontalBars ? 1 : 2,
+                borderRadius: useHorizontalBars ? 6 : 0,
+                maxBarThickness: 28
+            }]
+        },
+        options: {
+            indexAxis: useHorizontalBars ? "y" : "x",
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: useHorizontalBars ? undefined : "58%",
+            plugins: {
+                legend: {
+                    display: !useHorizontalBars,
+                    position: "right",
+                    labels: {
+                        boxWidth: 10,
+                        color: "#5B677A",
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                title: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const index = context.dataIndex;
+                            const taskName = labels[index] ?? "Tarea";
+                            const cost = formatMoney(costs[index] ?? 0);
+                            const percentage = formatStandardNumber(percentages[index] ?? 0);
+
+                            return `${taskName}: ${cost} (${percentage}% del BAC)`;
+                        }
+                    }
+                }
+            },
+            scales: useHorizontalBars ? {
+                x: {
+                    beginAtZero: true,
+                    grid: {
+                        color: "rgba(148, 163, 184, 0.16)"
+                    },
+                    border: {
+                        color: "rgba(148, 163, 184, 0.22)"
+                    },
+                    ticks: {
+                        color: "#5B677A",
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    },
+                    border: {
+                        color: "rgba(148, 163, 184, 0.22)"
+                    },
+                    ticks: {
+                        color: "#5B677A",
+                        font: {
+                            size: 11
+                        }
+                    }
+                }
+            } : {}
+        }
+    });
+}
+
 function buildCutoffSeries(labels, cortes, field) {
     const valuesByDate = new Map(
         cortes.map((corte) => [
@@ -593,9 +827,12 @@ function getIndicatorIcon(label) {
         AC: "A",
         SPI: "S",
         CPI: "C",
-        EAC: "E",
+        "EAC optimista": "E",
+        "EAC realista": "E",
+        "EAC pesimista": "E",
         VAC: "V",
-        TCPI: "T"
+        "TCPI(BAC)": "T",
+        "TCPI(EAC)": "T"
     };
 
     return icons[label] ?? "i";
